@@ -125,6 +125,7 @@ default_drivers = [
     'upekts',
     'goodixmoc',
     'goodixtls511',
+    'goodixtls53xd',
     'nb1010',
 
     # SPI
