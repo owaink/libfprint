@@ -206,6 +206,8 @@ static void check_config_upload(FpDevice* dev, gboolean success,
         fpi_ssm_next_state(user_data);
     }
 }
+/* 
+    Unused ¯\_(ツ)_/¯
 static void check_powerdown_scan_freq(FpDevice* dev, gboolean success,
                                       gpointer user_data, GError* error)
 {
@@ -226,10 +228,14 @@ enum otp_write_states {
 
     OTP_WRITE_NUM,
 };
+*/
+
+/*
+    Unused ¯\_(ツ)_/¯
 
 static void otp_write_run(FpiSsm* ssm, FpDevice* dev)
 {
-    /*FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(dev);
+    FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(dev);
     switch (fpi_ssm_get_cur_state(ssm)) {
     case OTP_WRITE_1:
         guint8 sensor1[] = {0x0a, 0x02};
@@ -244,9 +250,9 @@ static void otp_write_run(FpiSsm* ssm, FpDevice* dev)
             ssm);
         fpi_ssm_next_state(ssm);
         break;
-    }*/
+    }
 }
-
+*/
 static void read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
                               gpointer ssm, GError* err)
 {
@@ -369,8 +375,8 @@ static unsigned char get_pix(struct fpi_frame_asmbl_ctx* ctx,
     return frame->data[x + y * GOODIX53XD_WIDTH];
 }
 
-// Bitdepth is 12, but we have to fit it in a byte
-static unsigned char squash(int v) { return v / 16; }
+// Bitdepth is 12, but we have to fit it in a byte, unused, no squashing is done
+//static unsigned char squash(int v) { return v / 16; }
 
 static void decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
                          const guint8* raw_frame)
@@ -392,10 +398,17 @@ static void decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
         }
     }
 }
+/*
+    Unused, post processing doesn't appear to be done
+
 static int goodix_cmp_short(const void* a, const void* b)
 {
     return (int) (*(short*) a - *(short*) b);
 }
+*/
+
+/*
+    Unused, post processing doesn't appear to be done
 
 static void rotate_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE])
 {
@@ -408,12 +421,19 @@ static void rotate_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE])
     }
     memcpy(frame, buff, GOODIX53XD_FRAME_SIZE);
 }
+*/
+
+/*
+    Unused, post processing doesn't appear to be done
+
 static void squash_frame(Goodix53xdPix* frame, guint8* squashed)
 {
     for (int i = 0; i != GOODIX53XD_FRAME_SIZE; ++i) {
         squashed[i] = squash(frame[i]);
     }
 }
+*/
+
 /**
  * @brief Squashes the 12 bit pixels of a raw frame into the 4 bit pixels used
  * by libfprint.
@@ -455,6 +475,10 @@ static void squash_frame_linear(Goodix53xdPix* frame, guint8* squashed)
  * @param frame
  * @param background
  */
+
+/* 
+    Unused, maybe we don't need to process the frame?
+
 static gboolean postprocess_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
                                   Goodix53xdPix background[GOODIX53XD_FRAME_SIZE])
 {
@@ -479,7 +503,7 @@ static gboolean postprocess_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
     }
     return sum != 0;
 }
-
+*/
 typedef struct _frame_processing_info {
     FpiDeviceGoodixTls53XD* dev;
     GSList** frames;
@@ -556,6 +580,9 @@ enum scan_empty_img_state {
     SCAN_EMPTY_NUM,
 };
 
+/* 
+    Unused, potentially for debugging?
+
 static void on_scan_empty_img(FpDevice* dev, guint8* data, guint16 length,
                               gpointer ssm, GError* error)
 {
@@ -567,35 +594,45 @@ static void on_scan_empty_img(FpDevice* dev, guint8* data, guint16 length,
     decode_frame(self->empty_img, data);
     fpi_ssm_next_state(ssm);
 }
+*/
+
+/*  
+    Unused, potentially for debugging?
+
 static void scan_empty_run(FpiSsm* ssm, FpDevice* dev)
 {
 
     switch (fpi_ssm_get_cur_state(ssm)) {
-    case SCAN_EMPTY_NAV0:
-        goodix_send_nav_0(dev, check_none_cmd, ssm);
-        break;
+        case SCAN_EMPTY_NAV0:
+            goodix_send_nav_0(dev, check_none_cmd, ssm);
+            break;
 
-    case SCAN_EMPTY_GET_IMG: {
-        FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
-        FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
-        guint8 payload[] = {0x41, 0x03, self->otp[26], 0x00, self->otp[26] - 6, 0x00, self->otp[45], 0x00, self->otp[45] - 4, 0x00};
-        goodix_tls_read_image(dev, &payload, sizeof(payload), on_scan_empty_img, ssm);
-        break;
-    }
+        case SCAN_EMPTY_GET_IMG: {
+            //FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
+            //FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
+            //guint8 payload[] = {0x41, 0x03, self->otp[26], 0x00, self->otp[26] - 6, 0x00, self->otp[45], 0x00, self->otp[45] - 4, 0x00};
+            goodix_tls_read_image(dev, on_scan_empty_img, ssm);
+            break;
+        }
     }
 }
+*/
+
+/* 
+    Unused, potentially for debugging?
 
 static void scan_empty_img(FpDevice* dev, FpiSsm* ssm)
 {
     fpi_ssm_start_subsm(ssm, fpi_ssm_new(dev, scan_empty_run, SCAN_EMPTY_NUM));
 }
+*/
 
 static void scan_get_img(FpDevice* dev, FpiSsm* ssm)
 {
-    FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
-    FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
-    guint8 payload[] = {0x41, 0x03, self->otp[26], 0x00, self->otp[26] - 6, 0x00, self->otp[45], 0x00, self->otp[45] - 4, 0x00};
-    goodix_tls_read_image(dev, &payload, sizeof(payload), scan_on_read_img, ssm);
+    //FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
+    //FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
+    //guint8 payload[] = {0x41, 0x03, self->otp[26], 0x00, self->otp[26] - 6, 0x00, self->otp[45], 0x00, self->otp[45] - 4, 0x00};
+    goodix_tls_read_image(dev, scan_on_read_img, ssm);
 }
 
 const guint8 fdt_switch_state_mode_53xd[] = {
@@ -622,7 +659,7 @@ static void scan_run_state(FpiSsm* ssm, FpDevice* dev)
 
     case SCAN_STAGE_SWITCH_TO_FDT_MODE:
         goodix_send_mcu_switch_to_fdt_mode(dev, (guint8*) fdt_switch_state_mode_53xd,
-                                           sizeof(fdt_switch_state_mode_53xd), FALSE, NULL,
+                                           sizeof(fdt_switch_state_mode_53xd), NULL,
                                            check_none_cmd, ssm);
         break;
 
@@ -636,12 +673,12 @@ static void scan_run_state(FpiSsm* ssm, FpDevice* dev)
         // First FDT down must not send a reply
         fdt_switch_state_down_53xd[26] = 0x00;
         goodix_send_mcu_switch_to_fdt_down(dev, (guint8*) fdt_switch_state_down_53xd,
-                                           sizeof(fdt_switch_state_down_53xd), FALSE, NULL,
+                                           sizeof(fdt_switch_state_down_53xd), NULL,
                                            receive_fdt_down_ack, ssm);
         break;
     case SCAN_STAGE_GET_IMG:
         fpi_image_device_report_finger_status(img_dev, TRUE);
-        guint16 payload = {0x05, 0x03};
+        guint16 payload = {0x05}; //, 0x03};
         goodix_send_write_sensor_register(dev, 556, payload, write_sensor_complete, ssm);
         break;
     }
@@ -658,7 +695,7 @@ static void receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len,
     // Second FDT down must send a response
     fdt_switch_state_down_53xd[26] = 0x01;
     goodix_send_mcu_switch_to_fdt_down(dev, (guint8*) fdt_switch_state_down_53xd,
-                                        sizeof(fdt_switch_state_down_53xd), TRUE, NULL,
+                                        sizeof(fdt_switch_state_down_53xd), NULL,
                                         check_none_cmd, ssm);
 }
 
