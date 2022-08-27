@@ -173,8 +173,15 @@ usb:v27C6p6A94*
  ID_PERSIST=0
 
 # Supported by libfprint driver goodixtls511
-usb:v27c6p5110*
+usb:v27C6p5110*
  ID_AUTOSUSPEND=1
+ ID_PERSIST=0
+
+# Supported by libfprint driver goodixtls53xd
+usb:v27C6p538D*
+usb:v27C6p532D*
+ ID_AUTOSUSPEND=1
+ ID_PERSIST=0
 
 # Supported by libfprint driver nb1010
 usb:v298Dp1010*
@@ -327,12 +334,10 @@ usb:v27C6p5201*
 usb:v27C6p521D*
 usb:v27C6p5301*
 usb:v27C6p530C*
-usb:v27C6p532D*
 usb:v27C6p533C*
 usb:v27C6p5381*
 usb:v27C6p5385*
 usb:v27C6p538C*
-usb:v27C6p538D*
 usb:v27C6p5395*
 usb:v27C6p5503*
 usb:v27C6p5584*
