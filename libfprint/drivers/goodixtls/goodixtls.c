@@ -38,7 +38,7 @@
 #include "goodix.h"
 #include "goodixtls.h"
 
-static GError* err_from_ssl()
+static GError* err_from_ssl(void)
 {
     GError* err = malloc(sizeof(GError));
     unsigned long code = ERR_get_error();
