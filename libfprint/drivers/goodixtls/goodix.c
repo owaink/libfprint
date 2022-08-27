@@ -1396,7 +1396,7 @@ gboolean goodix_shutdown_tls(FpDevice *dev, GError **error)
   }
   return TRUE;
 }
-static void goodix_tls_ready_image_handler(FpDevice *dev, guint8 *data,
+void goodix_tls_ready_image_handler(FpDevice *dev, guint8 *data,
                                            guint16 length, gpointer user_data,
                                            GError *error)
 {

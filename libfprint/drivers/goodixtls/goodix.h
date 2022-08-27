@@ -248,6 +248,10 @@ void goodix_tls(FpDevice *dev, GoodixNoneCallback callback, gpointer user_data);
 
 gboolean goodix_shutdown_tls(FpDevice *dev, GError **error);
 
+void goodix_tls_ready_image_handler(FpDevice *dev, guint8 *data,
+                                           guint16 length, gpointer user_data,
+                                           GError *error);
+
 void goodix_tls_read_image(FpDevice *dev, GoodixImageCallback callback,
                            gpointer user_data);
 
