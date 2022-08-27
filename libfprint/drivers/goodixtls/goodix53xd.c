@@ -629,7 +629,7 @@ static void scan_empty_img(FpDevice* dev, FpiSsm* ssm)
     fpi_ssm_start_subsm(ssm, fpi_ssm_new(dev, scan_empty_run, SCAN_EMPTY_NUM));
 }
 
-void goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
+static void goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
                                gpointer user_data)
 {
 
@@ -653,7 +653,7 @@ void goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 leng
                        NULL, NULL);
 }
 
-void goodix_53xd_tls_read_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
+static void goodix_53xd_tls_read_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
                            gpointer user_data)
 {
   g_assert(callback);
