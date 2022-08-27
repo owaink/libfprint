@@ -50,7 +50,7 @@
 // extra end
 #define GOODIX53XD_RAW_FRAME_SIZE                                               \
     (GOODIX53XD_HEIGHT * GOODIX53XD_SCAN_WIDTH) / 4 * 6
-#define GOODIX53XD_CAP_FRAMES 10 // Number of frames we capture per swipe
+#define GOODIX53XD_CAP_FRAMES 1 // Number of frames we capture per swipe
 
 typedef unsigned short Goodix53xdPix;
 

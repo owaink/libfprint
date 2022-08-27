@@ -38,12 +38,12 @@
 #include "goodix.h"
 #include "goodixtls.h"
 
-static GError *err_from_ssl()
+static GError* err_from_ssl()
 {
-    GError *err = malloc(sizeof(GError));
+    GError* err = malloc(sizeof(GError));
     unsigned long code = ERR_get_error();
     err->code = code;
-    const char *msg = ERR_reason_error_string(code);
+    const char* msg = ERR_reason_error_string(code);
     err->message = malloc(strlen(msg));
     strcpy(err->message, msg);
     return err;
@@ -52,42 +52,39 @@ static GError *err_from_ssl()
 static unsigned int tls_server_psk_server_callback(SSL *ssl,
                                                    const char *identity,
                                                    unsigned char *psk,
-                                                   unsigned int max_psk_len)
-{
-    if (sizeof(goodix_511_psk_0) > max_psk_len)
-    {
+                                                   unsigned int max_psk_len) {
+    if (sizeof(goodix_511_psk_0) > max_psk_len) {
         fp_dbg("Provided PSK R is too long for OpenSSL");
         return 0;
     }
     fp_dbg("PSK WANTED %d", max_psk_len);
     // I don't know why we must use OPENSSL_hexstr2buf but just copying zeros
     // doesn't work
-    const char *buff = "000000000000000000000000000000000000000000000000000000000"
+    const char* buff = "000000000000000000000000000000000000000000000000000000000"
                        "0000000";
     long len = 0;
-    unsigned char *key = OPENSSL_hexstr2buf(buff, &len);
+    unsigned char* key = OPENSSL_hexstr2buf(buff, &len);
     memcpy(psk, key, len);
     OPENSSL_free(key);
 
     return len;
 }
 
-static SSL_CTX *tls_server_create_ctx(void)
+static SSL_CTX* tls_server_create_ctx(void)
 {
-    const SSL_METHOD *method;
+    const SSL_METHOD* method;
 
     method = TLS_server_method();
 
-    SSL_CTX *ctx = SSL_CTX_new(method);
-    if (!ctx)
-    {
+    SSL_CTX* ctx = SSL_CTX_new(method);
+    if (!ctx) {
         return NULL;
     }
 
     return ctx;
 }
 
-static void tls_server_config_ctx(SSL_CTX *ctx)
+static void tls_server_config_ctx(SSL_CTX* ctx)
 {
     SSL_CTX_set_ecdh_auto(ctx, 1);
     SSL_CTX_set_dh_auto(ctx, 1);
@@ -97,27 +94,25 @@ static void tls_server_config_ctx(SSL_CTX *ctx)
     SSL_CTX_set_psk_server_callback(ctx, tls_server_psk_server_callback);
 }
 
-int goodix_tls_client_send(GoodixTlsServer *self, guint8 *data, guint16 length)
+int goodix_tls_client_send(GoodixTlsServer* self, guint8* data, guint16 length)
 {
     return write(self->client_fd, data, length * sizeof(guint8));
 }
-int goodix_tls_client_recv(GoodixTlsServer *self, guint8 *data, guint16 length)
-{
+int goodix_tls_client_recv(GoodixTlsServer* self, guint8* data, guint16 length) {
     return read(self->client_fd, data, length * sizeof(guint8));
 }
 
-int goodix_tls_server_receive(GoodixTlsServer *self, guint8 *data,
-                              guint32 length, GError **error)
+int goodix_tls_server_receive(GoodixTlsServer* self, guint8* data,
+                              guint32 length, GError** error)
 {
     int retr = SSL_read(self->ssl_layer, data, length * sizeof(guint8));
-    if (retr <= 0)
-    {
-        *error = err_from_ssl();
+    if (retr <= 0) {
+       *error = err_from_ssl();
     }
     return retr;
 }
 
-static void tls_config_ssl(SSL *ssl)
+static void tls_config_ssl(SSL* ssl)
 {
     SSL_set_min_proto_version(ssl, TLS1_2_VERSION);
     SSL_set_max_proto_version(ssl, TLS1_2_VERSION);
@@ -125,25 +120,23 @@ static void tls_config_ssl(SSL *ssl)
     SSL_set_cipher_list(ssl, "ALL");
 }
 
-static void *goodix_tls_init_serve(void *me)
+static void* goodix_tls_init_serve(void* me)
 {
-    GoodixTlsServer *self = me;
+    GoodixTlsServer* self = me;
 
     fp_dbg("TLS server waiting to accept...");
     int retr = SSL_accept(self->ssl_layer);
     fp_dbg("TLS server accept done");
-    if (retr <= 0)
-    {
+    if (retr <= 0) {
         self->connection_callback(self, err_from_ssl(), self->user_data);
     }
-    else
-    {
+    else {
         self->connection_callback(self, NULL, self->user_data);
     }
     return NULL;
 }
 
-gboolean goodix_tls_server_deinit(GoodixTlsServer *self, GError **error)
+gboolean goodix_tls_server_deinit(GoodixTlsServer* self, GError** error)
 {
     SSL_shutdown(self->ssl_layer);
     SSL_free(self->ssl_layer);
@@ -156,7 +149,7 @@ gboolean goodix_tls_server_deinit(GoodixTlsServer *self, GError **error)
     return TRUE;
 }
 
-gboolean goodix_tls_server_init(GoodixTlsServer *self, GError **error)
+gboolean goodix_tls_server_init(GoodixTlsServer* self, GError** error)
 {
     g_assert(self->connection_callback);
     SSL_load_error_strings();
@@ -166,8 +159,7 @@ gboolean goodix_tls_server_init(GoodixTlsServer *self, GError **error)
     tls_server_config_ctx(self->ssl_ctx);
 
     int socks[2] = {0, 0};
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, socks) != 0)
-    {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, socks) != 0) {
         g_set_error(error, G_FILE_ERROR, errno,
                     "failed to create socket pair: %s", strerror(errno));
         return FALSE;
@@ -175,10 +167,9 @@ gboolean goodix_tls_server_init(GoodixTlsServer *self, GError **error)
     self->sock_fd = socks[0];
     self->client_fd = socks[1];
 
-    if (self->ssl_ctx == NULL)
-    {
+    if (self->ssl_ctx == NULL) {
         fp_dbg("Unable to create TLS server context\n");
-        *error = fpi_device_error_new_msg(FP_DEVICE_ERROR_GENERAL, "Unable to "
+       *error = fpi_device_error_new_msg(FP_DEVICE_ERROR_GENERAL, "Unable to "
                                                                    "create TLS "
                                                                    "server "
                                                                    "context");

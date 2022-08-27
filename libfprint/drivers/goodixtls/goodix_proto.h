@@ -26,6 +26,7 @@
 
 #define GOODIX_FLAGS_MSG_PROTOCOL (0xa0)
 #define GOODIX_FLAGS_TLS (0xb0)
+#define GOODIX_FLAGS_TLS_DATA (0xb2)
 
 #define GOODIX_CMD_NOP (0x00)
 #define GOODIX_CMD_MCU_GET_IMAGE (0x20)
@@ -119,11 +120,16 @@ typedef struct __attribute__((__packed__)) _GoodixQueryMcuState
   guint8 unused_flags;
 } GoodixQueryMcuState;
 
-typedef struct __attribute__((__packed__)) _GoodixPresetPsk
-{
+typedef struct __attribute__((__packed__)) _GoodixPresetPsk {
+  guint32 length;
+  guint32 offset;
+  guint32 flags;
+} GoodixPresetPsk;
+
+typedef struct __attribute__((__packed__)) _GoodixPresetPskResponse {
   guint32 flags;
   guint32 length;
-} GoodixPresetPsk;
+} GoodixPresetPskResponse;
 
 typedef struct __attribute__((__packed__)) _GoodixDefault
 {

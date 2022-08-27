@@ -198,10 +198,9 @@ void goodix_receive_preset_psk_read(FpDevice *dev, guint8 *data, guint16 length,
     return;
   }
 
-  psk_len =
-      GUINT32_FROM_LE(((GoodixPresetPsk *)(data + sizeof(guint8)))->length);
-
-  if (length < psk_len + sizeof(guint8) + sizeof(GoodixPresetPsk))
+  GoodixPresetPskResponse *response = data + sizeof(guint8);
+  psk_len = response->length;
+  if (length < psk_len + sizeof(guint8) + sizeof(GoodixPresetPskResponse)) 
   {
     g_set_error(&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
                 "Invalid preset PSK read reply length: %d", length);
@@ -210,8 +209,8 @@ void goodix_receive_preset_psk_read(FpDevice *dev, guint8 *data, guint16 length,
   }
 
   callback(dev, TRUE,
-           GUINT32_FROM_LE(((GoodixPresetPsk *)(data + sizeof(guint8)))->flags),
-           data + sizeof(guint8) + sizeof(GoodixPresetPsk), psk_len,
+           GUINT32_FROM_LE(response->flags),
+           data + sizeof(guint8) + sizeof(GoodixPresetPskResponse), psk_len,
            cb_info->user_data, NULL);
 }
 
@@ -345,7 +344,7 @@ void goodix_receive_protocol(FpDevice *dev, guint8 *data, guint32 length)
 
   if (!priv->reply)
   {
-    fp_warn("Didn't excpect a reply for command: 0x%02x", priv->cmd);
+    fp_warn("Didn't expect a reply for command: 0x%02x", priv->cmd);
     return;
   }
 
@@ -391,6 +390,12 @@ void goodix_receive_pack(FpDevice *dev, guint8 *data, guint32 length)
     // TLS message sending it to TLS server.
     // TODO
     break;
+    
+    case GOODIX_FLAGS_TLS_DATA:
+        fp_dbg("Got TLS data msg");
+        // GOODIX 52xd: Remove first 9 to get valid TLS content
+        goodix_receive_done(dev, payload+9, payload_len-9, NULL);
+        break;
 
   default:
     fp_warn("Unknown flags: 0x%02x", flags);
