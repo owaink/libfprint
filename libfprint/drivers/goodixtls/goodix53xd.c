@@ -629,6 +629,30 @@ static void scan_empty_img(FpDevice* dev, FpiSsm* ssm)
     fpi_ssm_start_subsm(ssm, fpi_ssm_new(dev, scan_empty_run, SCAN_EMPTY_NUM));
 }
 
+void goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
+                               gpointer user_data)
+{
+
+  GoodixCallbackInfo *cb_info;
+
+  if (callback)
+  {
+    cb_info = malloc(sizeof(GoodixCallbackInfo));
+
+    cb_info->callback = G_CALLBACK(callback);
+    cb_info->user_data = user_data;
+
+    goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, (guint8 *)&payload,
+                         length, NULL, TRUE, GOODIX_TIMEOUT, TRUE,
+                         goodix_receive_default, cb_info);
+    return;
+  }
+
+  goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, (guint8 *)&payload,
+                       length, NULL, TRUE, GOODIX_TIMEOUT, TRUE,
+                       NULL, NULL);
+}
+
 void goodix_53xd_tls_read_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
                            gpointer user_data)
 {
@@ -882,28 +906,3 @@ static void fpi_device_goodixtls53xd_class_init(
 
   fpi_device_class_auto_initialize_features(dev_class);
 }
-
-void goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
-                               gpointer user_data)
-{
-
-  GoodixCallbackInfo *cb_info;
-
-  if (callback)
-  {
-    cb_info = malloc(sizeof(GoodixCallbackInfo));
-
-    cb_info->callback = G_CALLBACK(callback);
-    cb_info->user_data = user_data;
-
-    goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, (guint8 *)&payload,
-                         length, NULL, TRUE, GOODIX_TIMEOUT, TRUE,
-                         goodix_receive_default, cb_info);
-    return;
-  }
-
-  goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, (guint8 *)&payload,
-                       length, NULL, TRUE, GOODIX_TIMEOUT, TRUE,
-                       NULL, NULL);
-}
-
