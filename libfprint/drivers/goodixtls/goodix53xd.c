@@ -670,7 +670,7 @@ static void scan_get_img(FpDevice* dev, FpiSsm* ssm)
     FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
     guint8 payload[] = {0x41, 0x03, self->otp[26], 0x00, self->otp[26] - 6, 0x00, self->otp[45], 0x00, self->otp[45] - 4, 0x00};
-    goodix_53xd_tls_read_image(dev, &payload, sizeof(payload), scan_on_read_img, ssm);
+    goodix_53xd_tls_read_image(dev, (guint8*)&payload, sizeof(payload), scan_on_read_img, ssm);
 }
 
 const guint8 fdt_switch_state_mode_53xd[] = {
