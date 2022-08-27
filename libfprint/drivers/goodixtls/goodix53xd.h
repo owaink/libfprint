@@ -36,12 +36,6 @@ const guint8 goodix_53xd_psk_0[] = {
     0x8b, 0x8e, 0x9f, 0x8e, 0x20, 0x08, 0x97, 0x14, 0x85, 0x6e, 0xe2, 
     0x33, 0xb3, 0x90, 0x2a, 0x59, 0x1d, 0x0d, 0x5f, 0x29, 0x25};
 
-/*
-const guint8 goodix_53xd_psk_0[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-*/
 guint8 goodix_53xd_config[] = {
     0x70, 0x11, 0x60, 0x71, 0x2c, 0x9d, 0x2c, 0xc9, 0x1c, 0xe5, 0x18,
     0xfd, 0x00, 0xfd, 0x00, 0xfd, 0x03, 0xba, 0x00, 0x01, 0x80, 0xca,
@@ -78,3 +72,14 @@ static const FpIdEntry id_table[] = {
 static void write_sensor_complete(FpDevice *dev, gpointer user_data, GError *error) ;
 static void receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len,
                            gpointer ssm, GError* err);
+static void goodix_send_mcu_switch_to_fdt_down_with_no_reply(FpDevice *dev, guint8 *mode,
+                                        guint16 length,
+                                        GDestroyNotify free_func,
+                                        GoodixDefaultCallback callback,
+                                        gpointer user_data);
+
+static void goodix_send_mcu_switch_to_fdt_mode_no_reply(FpDevice *dev, guint8 *mode,
+                                        guint16 length,
+                                        GDestroyNotify free_func,
+                                        GoodixDefaultCallback callback,
+                                        gpointer user_data);

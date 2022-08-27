@@ -20,7 +20,7 @@
 #pragma once
 
 // 1 seconds USB timeout
-#define GOODIX_TIMEOUT (100000) 
+#define GOODIX_TIMEOUT (1000) 
 
 G_DECLARE_DERIVABLE_TYPE(FpiDeviceGoodixTls, fpi_device_goodixtls, FPI,
                          DEVICE_GOODIXTLS, FpImageDevice)
