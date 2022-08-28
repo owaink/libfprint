@@ -50,7 +50,7 @@
 // extra end
 #define GOODIX53XD_RAW_FRAME_SIZE                                               \
     (GOODIX53XD_HEIGHT * GOODIX53XD_SCAN_WIDTH) / 4 * 6
-#define GOODIX53XD_CAP_FRAMES 10 // Number of frames we capture per swipe
+#define GOODIX53XD_CAP_FRAMES 1 // Number of frames we capture per swipe
 
 typedef unsigned short Goodix53xdPix;
 
@@ -642,13 +642,13 @@ static void goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint
     cb_info->callback = G_CALLBACK(callback);
     cb_info->user_data = user_data;
 
-    goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, (guint8 *)&payload,
+    goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, payload,
                          length, NULL, TRUE, GOODIX_TIMEOUT, TRUE,
                          goodix_receive_default, cb_info);
     return;
   }
 
-  goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, (guint8 *)&payload,
+  goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, payload,
                        length, NULL, TRUE, GOODIX_TIMEOUT, TRUE,
                        NULL, NULL);
 }
@@ -670,7 +670,7 @@ static void scan_get_img(FpDevice* dev, FpiSsm* ssm)
     FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
     guint8 payload[] = {0x41, 0x03, self->otp[26], 0x00, self->otp[26] - 6, 0x00, self->otp[45], 0x00, self->otp[45] - 4, 0x00};
-    goodix_53xd_tls_read_image(dev, (guint8*)&payload, sizeof(payload), scan_on_read_img, ssm);
+    goodix_53xd_tls_read_image(dev, (guint8 *)&payload, sizeof(payload), scan_on_read_img, ssm);
 }
 
 const guint8 fdt_switch_state_mode_53xd[] = {
