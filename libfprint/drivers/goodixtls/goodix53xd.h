@@ -43,7 +43,8 @@ goodix_53xd_psk_0[] = {
     0x0d, 0x5f, 0x29, 0x25
 };
 
-guint8 goodix_53xd_config[] = {
+guint8 
+goodix_53xd_config[] = {
     0x70, 0x11, 0x60, 0x71, 0x2c, 0x9d, 0x2c, 0xc9, 0x1c, 0xe5, 0x18,
     0xfd, 0x00, 0xfd, 0x00, 0xfd, 0x03, 0xba, 0x00, 0x01, 0x80, 0xca,
     0x00, 0x08, 0x00, 0x84, 0x00, 0xbe, 0xc3, 0x86, 0x00, 0xb1, 0xb6,
@@ -67,7 +68,24 @@ guint8 goodix_53xd_config[] = {
     0x00, 0x66, 0x00, 0x00, 0x02, 0x7c, 0x00, 0x00, 0x58, 0x2a, 0x01,
     0x08, 0x00, 0x5c, 0x00, 0xdc, 0x00, 0x52, 0x00, 0x08, 0x00, 0x54,
     0x00, 0x00, 0x01, 0x66, 0x00, 0x00, 0x02, 0x7c, 0x00, 0x00, 0x58,
-    0x20, 0xc5, 0x1d};
+    0x20, 0xc5, 0x1d
+};
+
+const guint8
+fdt_switch_state_mode_53xd[] = {
+    0x0d, 0x01, 0x28, 0x01, 0x22, 0x01, 0x28, 0x01,
+    0x24, 0x01, 0x91, 0x91, 0x8b, 0x8b, 0x96, 0x96,
+    0x91, 0x91, 0x98, 0x98, 0x90, 0x90, 0x92, 0x92,
+    0x88, 0x88, 0x00
+};
+
+guint8
+fdt_switch_state_down_53xd[] = {
+    0x8c, 0x01, 0x28, 0x01, 0x22, 0x01, 0x28, 0x01,
+    0x24, 0x01, 0x91, 0x91, 0x8b, 0x8b, 0x96, 0x96,
+    0x91, 0x91, 0x98, 0x98, 0x90, 0x90, 0x92, 0x92,
+    0x88, 0x88, 0x00
+};
 
 static const FpIdEntry id_table[] = {
     {.vid = 0x27c6, .pid = 0x538d},
@@ -75,7 +93,66 @@ static const FpIdEntry id_table[] = {
     {.vid = 0, .pid = 0, .driver_data = 0},
 };
 
+enum
+scan_empty_img_state {
+    SCAN_EMPTY_NAV0,
+    SCAN_EMPTY_GET_IMG,
 
-static void write_sensor_complete(FpDevice *dev, gpointer user_data, GError *error) ;
-static void receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len,
-                           gpointer ssm, GError* err);
+    SCAN_EMPTY_NUM,
+};
+
+/*
+    These are the states the driver iterates through when a device it supports
+    is "activated", with the final state just being a marker of how many states
+    there are in total
+
+    TODO: Checking the PSK and firmware can probably be moved to device init
+*/
+enum
+activate_states {
+    ACTIVATE_READ_AND_NOP,  // First, send a no-operation
+                            // command to get a clean slate
+    ACTIVATE_ENABLE_CHIP,   // Second, tell the sensor to start
+                            // listening for a finger
+    ACTIVATE_NOP,           // Third, do nothing...? TODO
+    ACTIVATE_CHECK_FW_VER,  // Fourth, check the running firmware
+                            // is what we expect
+    ACTIVATE_CHECK_PSK,     // Fifth, check that the preshared key
+                            // used for TLS communication is as expected
+    ACTIVATE_RESET,         // Sixth, no idea TODO
+    ACTIVATE_OTP,           // Seventh, establish one time
+                            // password for TLS communication
+    ACTIVATE_SET_MCU_IDLE,  // Eighth, tell the sensor to idle
+    ACTIVATE_SET_MCU_CONFIG,// Ninth, pass configuration sensor
+    ACTIVATE_NUM_STATES,    // Number of states in state machine, currently nine
+};
+
+enum
+otp_write_states {
+    OTP_WRITE_1,
+    OTP_WRITE_2,
+
+    OTP_WRITE_NUM,
+};
+
+enum
+SCAN_STAGES {
+    SCAN_STAGE_SWITCH_TO_FDT_DOWN,
+    SCAN_STAGE_SWITCH_TO_FDT_MODE,
+    SCAN_STAGE_GET_IMG,
+
+    SCAN_STAGE_NUM,
+};
+
+typedef struct
+_frame_processing_info {
+    FpiDeviceGoodixTls53XD* dev;
+    GSList** frames;
+
+} frame_processing_info;
+
+static void
+write_sensor_complete(FpDevice *dev, gpointer user_data, GError *error);
+static void
+receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len, gpointer ssm, 
+                        GError* err);
