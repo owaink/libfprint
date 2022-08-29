@@ -51,7 +51,7 @@ goodix_53xd_psk_0[] = {
 
     256 bytes in length
 */
-const guint8 
+guint8 
 goodix_53xd_config[] = {
  // 0-31
  0x70, 0x11, 0x60, 0x71,  0x2c, 0x9d, 0x2c, 0xc9,
@@ -186,15 +186,10 @@ SCAN_STAGES {
  SCAN_STAGE_SWITCH_TO_FDT_MODE, // Then immediately set it to "mode"? 
  SCAN_STAGE_GET_IMG,            // Actually get the image
 
- SCAN_STAGE_NUM,
+ SCAN_STAGE_NUM
 };
 
-typedef struct
-_frame_processing_info {
- FpiDeviceGoodixTls53XD* dev;
- GSList** frames;
 
-} frame_processing_info;
 
 static void
 write_sensor_complete(FpDevice *dev, gpointer user_data, GError *error);
