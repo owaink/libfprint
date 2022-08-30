@@ -69,7 +69,7 @@ G_DECLARE_FINAL_TYPE(FpiDeviceGoodixTls53XD, fpi_device_goodixtls53xd, FPI,
 
 G_DEFINE_TYPE(FpiDeviceGoodixTls53XD, fpi_device_goodixtls53xd,
               FPI_TYPE_DEVICE_GOODIXTLS);
-              
+
 typedef struct
 _frame_processing_info {
  FpiDeviceGoodixTls53XD* dev;
@@ -228,7 +228,14 @@ check_idle(FpDevice* dev, gpointer user_data, GError* err)
     }
     fpi_ssm_next_state(user_data);
 }
-
+/**
+ * @brief Checks config was uploaded properly and moves to next state
+ * 
+ * @param dev 
+ * @param success 
+ * @param user_data 
+ * @param error 
+ */
 static void
 check_config_upload(FpDevice* dev, gboolean success,
                                 gpointer user_data, GError* error)
@@ -470,7 +477,8 @@ squash_frame_linear(Goodix53xdPix* frame, guint8* squashed)
 
 /**
  * @brief Subtracts the background from the frame
- *
+ * @details This appears to be used for calibrating the scanner by taking an
+ *          empty image and subtracting it from the fingerprint image
  * @param frame
  * @param background
  */
@@ -487,7 +495,8 @@ process_frame(Goodix53xdPix* raw_frame, frame_processing_info* info)
 }
 /**
  * @brief Save the frame to an internal buffer
- * 
+ * @details Transforms raw data to useable image, then appends to an internal
+ *          single linked list
  * @param self 
  * @param raw 
  */
@@ -500,7 +509,11 @@ save_frame(FpiDeviceGoodixTls53XD* self, guint8* raw)
     self->frames = g_slist_append(self->frames, frame);
 }
 /**
- * @brief 
+ * @brief Saves the currently captured frame and captures new frame until list
+ *          is full, then processes into single image
+ * @details Captures frames and decodes to images until linked list is of size
+ *          GOODIX53XD_CAP_FRAMES. Processes all the images into a single image
+ *          and presents to libfprint as the resulting scanned image
  * 
  * @param dev 
  * @param data 
@@ -516,7 +529,6 @@ scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
         fpi_ssm_mark_failed(ssm, err);
         return;
     }
-
 
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(dev);
     save_frame(self, data);
@@ -554,49 +566,12 @@ scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
         fpi_ssm_next_state(ssm);
     }
 }
-
-
-static void 
-goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length,
-                            GoodixImageCallback callback, gpointer user_data)
-{
-
-  GoodixCallbackInfo *cb_info;
-
-  if (callback)
-  {
-    cb_info = malloc(sizeof(GoodixCallbackInfo));
-
-    cb_info->callback = G_CALLBACK(callback);
-    cb_info->user_data = user_data;
-
-    goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, payload,
-                         length, NULL, TRUE, GOODIX_TIMEOUT, TRUE,
-                         goodix_receive_default, cb_info);
-    return;
-  }
-
-  goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, payload,
-                       length, NULL, TRUE, GOODIX_TIMEOUT, TRUE,
-                       NULL, NULL);
-}
-
-static void
-goodix_53xd_tls_read_image(FpDevice* dev, guint8* payload,
-                                        guint16 length, 
-                                        GoodixImageCallback callback,
-                                        gpointer user_data)
-{
-  g_assert(callback);
-  GoodixCallbackInfo *cb_info = malloc(sizeof(GoodixCallbackInfo));
-
-  cb_info->callback = G_CALLBACK(callback);
-  cb_info->user_data = user_data;
-
-  goodix_53xd_send_mcu_get_image(dev, payload, length, 
-                                    goodix_tls_ready_image_handler, cb_info);
-}
-
+/**
+ * @brief 
+ * 
+ * @param dev 
+ * @param ssm 
+ */
 static void
 scan_get_img(FpDevice* dev, FpiSsm* ssm)
 {
@@ -604,17 +579,23 @@ scan_get_img(FpDevice* dev, FpiSsm* ssm)
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
     guint8 payload[] = {0x41, 0x03, self->otp[26], 0x00,
         self->otp[26] - 6, 0x00, self->otp[45], 0x00, self->otp[45] - 4, 0x00};
-    goodix_53xd_tls_read_image(dev, (guint8 *)&payload,
-                                sizeof(payload), scan_on_read_img, ssm);
+
+    
+    GoodixCallbackInfo* cb_info = malloc(sizeof(GoodixCallbackInfo));
+
+    cb_info->callback = G_CALLBACK(scan_on_read_img);
+    cb_info->user_data = payload;
+
+    goodix_send_protocol(dev, GOODIX_CMD_MCU_GET_IMAGE, (guint8*)&payload,
+                        sizeof(payload), NULL, TRUE, GOODIX_TIMEOUT, TRUE,
+                        goodix_receive_default, cb_info);
 }
 
 static void
-goodix_send_mcu_switch_to_fdt_down_with_no_reply(FpDevice *dev, 
-                                                guint8 *mode,
-                                                guint16 length,
-                                                GDestroyNotify free_func,
-                                                GoodixDefaultCallback callback,
-                                                gpointer user_data)
+goodix_send_mcu(FpDevice *dev, guint8 cmd, gboolean reply,
+                guint8 *mode, guint16 length,
+                GDestroyNotify free_func, GoodixDefaultCallback callback,
+                gpointer user_data)
 {
   GoodixCallbackInfo *cb_info;
 
@@ -625,41 +606,14 @@ goodix_send_mcu_switch_to_fdt_down_with_no_reply(FpDevice *dev,
     cb_info->callback = G_CALLBACK(callback);
     cb_info->user_data = user_data;
 
-    goodix_send_protocol(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_DOWN, mode, length,
-                         free_func, TRUE, 0, FALSE, goodix_receive_default,
+    goodix_send_protocol(dev, cmd, mode, length,
+                         free_func, TRUE, 0, reply, goodix_receive_default,
                          cb_info);
     return;
   }
 
-  goodix_send_protocol(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_DOWN, mode, length,
-                       free_func, TRUE, 0, FALSE, NULL, NULL);
-}
-
-static void
-goodix_send_mcu_switch_to_fdt_mode_no_reply(FpDevice *dev, 
-                                            guint8 *mode,
-                                            guint16 length,
-                                            GDestroyNotify free_func,
-                                            GoodixDefaultCallback callback,
-                                            gpointer user_data)
-{
-  GoodixCallbackInfo *cb_info;
-
-  if (callback)
-  {
-    cb_info = malloc(sizeof(GoodixCallbackInfo));
-
-    cb_info->callback = G_CALLBACK(callback);
-    cb_info->user_data = user_data;
-
-    goodix_send_protocol(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_MODE, mode, length,
-                         free_func, TRUE, 0, FALSE, goodix_receive_default,
-                         cb_info);
-    return;
-  }
-
-  goodix_send_protocol(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_MODE, mode, length,
-                       free_func, TRUE, 0, FALSE, NULL, NULL);
+  goodix_send_protocol(dev, cmd, mode, length,
+                       free_func, TRUE, 0, reply, NULL, NULL);
 }
 
 static void
@@ -672,10 +626,10 @@ scan_run_state(FpiSsm* ssm, FpDevice* dev)
     switch (fpi_ssm_get_cur_state(ssm)) {
 
     case SCAN_STAGE_SWITCH_TO_FDT_MODE:
-        goodix_send_mcu_switch_to_fdt_mode_no_reply(dev, 
-                                        (guint8 *)fdt_switch_state_mode_53xd,
-                                        sizeof(fdt_switch_state_mode_53xd), NULL,
-                                        check_none_cmd, ssm);
+        goodix_send_mcu(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_MODE, TRUE,
+                                    (guint8 *)fdt_switch_state_mode_53xd,
+                                    sizeof(fdt_switch_state_mode_53xd), NULL,
+                                    check_none_cmd, ssm);
         break;
 
     case SCAN_STAGE_SWITCH_TO_FDT_DOWN:
@@ -687,10 +641,10 @@ scan_run_state(FpiSsm* ssm, FpDevice* dev)
 
         // First FDT down must not send a reply
         fdt_switch_state_down_53xd[26] = 0x00;
-        goodix_send_mcu_switch_to_fdt_down_with_no_reply(dev, 
-                                        (guint8*) fdt_switch_state_down_53xd,
-                                        sizeof(fdt_switch_state_down_53xd),
-                                        NULL, receive_fdt_down_ack, ssm);
+        goodix_send_mcu(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_DOWN, FALSE,
+                        (guint8*) fdt_switch_state_down_53xd,
+                        sizeof(fdt_switch_state_down_53xd),
+                        NULL, receive_fdt_down_ack, ssm);
         break;
     case SCAN_STAGE_GET_IMG:
         fpi_image_device_report_finger_status(img_dev, TRUE);
