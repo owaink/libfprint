@@ -51,7 +51,7 @@ typedef void (*GoodixFirmwareVersionCallback)(FpDevice *dev, gchar *firmware,
 
 typedef void (*GoodixPresetPskReadCallback)(FpDevice *dev, gboolean success,
                                             guint32 flags, guint8 *psk,
-                                            guint16 length, gpointer user_data,
+                                            guint16 length, FpiSsm* ssm, 
                                             GError *error);
 
 typedef void (*GoodixSuccessCallback)(FpDevice *dev, gboolean success,

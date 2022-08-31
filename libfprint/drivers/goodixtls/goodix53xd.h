@@ -183,7 +183,7 @@ otp_write_states {
 */
 enum
 SCAN_STAGES {
- SCAN_STAGE_SWITCH_TO_FDT_DOWN, // Set FDT (no idea what it is) to down
+ //SCAN_STAGE_SWITCH_TO_FDT_DOWN, // Set FDT (no idea what it is) to down
  SCAN_STAGE_SWITCH_TO_FDT_MODE, // Then immediately set it to "mode"? 
  SCAN_STAGE_GET_IMG,            // Actually get the image
 
@@ -192,11 +192,11 @@ SCAN_STAGES {
 
 
 
-static void
-write_sensor_complete(FpDevice *dev, gpointer user_data, GError *error);
-static void
-receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len, gpointer ssm, 
-      GError* err);
+// static void
+// write_sensor_complete(FpDevice *dev, gpointer user_data, GError *error);
+// static void
+// receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len, FpiSSm* ssm, 
+//       GError* err);
 
 /*
     These are the devices that are supported by this driver, identified
