@@ -559,9 +559,10 @@ void goodix_send_protocol(
 
   fp_dbg("Running command: 0x%02x", cmd);
 
-  if (timeout_ms)
-    priv->timeout = fpi_device_add_timeout(
-        dev, timeout_ms, goodix_receive_timeout_cb, NULL, NULL);
+  if (timeout_ms) {
+    priv->timeout = fpi_device_add_timeout(dev, timeout_ms,
+                                        goodix_receive_timeout_cb, NULL, NULL);
+  }
   priv->cmd = cmd;
   priv->ack = TRUE;
   priv->reply = reply;

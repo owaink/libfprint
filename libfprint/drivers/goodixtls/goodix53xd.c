@@ -42,6 +42,11 @@
 
 #include <math.h>
 
+#define GOODIX53XD_DEVICE_ID "goodixtls53xd"
+#define GOODIX53XD_DEVICE_NAME "Goodix TLS Fingerprint Sensor 53XD"
+#define GOODIX53XD_BZ3_THRESHOLD 24
+#define GOODIX53XD_SLEEP_TIME 20
+#define GOODIX53XD_PSK_LENGTH 32
 #define GOODIX53XD_WIDTH 64
 #define GOODIX53XD_HEIGHT 80
 #define GOODIX53XD_SCAN_WIDTH 64
@@ -79,11 +84,12 @@ _frame_processing_info {
 // ---- ACTIVE SECTION START ----
 
 /**
- * @brief Checks that the sent command executed properly, then moves to next
- *        state in the state machine
- * 
- * @param dev 
- * @param user_data 
+ * @brief   Checks that the scanner did not report and error,
+ *          then moves to next state in the state machine
+ * @details Used as a default callback if we don't need to do anything with
+ *          the device's response
+ * @param dev Scanner being communicated with
+ * @param ssm State machine for operation
  * @param error 
  */
 static void
@@ -92,50 +98,23 @@ goodix_send_callback(FpDevice *dev, FpiSsm* ssm, GError *error) {
     fpi_ssm_mark_failed(ssm, error);
     return;
   }
-   switch (fpi_ssm_get_cur_state(ssm)) {
-    case ACTIVATE_READ_AND_NOP:
-        break;
-
-    case ACTIVATE_ENABLE_CHIP:
-        break;
-
-    case ACTIVATE_NOP:
-        break;
-
-    case ACTIVATE_CHECK_FW_VER:
-        break;
-
-    case ACTIVATE_CHECK_PSK:
-        break;
-
-    case ACTIVATE_RESET:
-        break;
-
-    case ACTIVATE_OTP:
-        break;
-
-    case ACTIVATE_SET_MCU_IDLE:
-        break;
-
-    case ACTIVATE_SET_MCU_CONFIG:
-        break;
-    default: // TODO What happens if we have a bad state?
-   }
   fpi_ssm_next_state(ssm);
 }
 /**
  * @brief Checks that firmware name is expected and advances to next state
+ * @details Used as a callback when the scanner responds to a firmware version
+ *          check
  * 
- * @param dev 
- * @param firmware 
- * @param user_data 
+ * @param dev Fingerprint scanner being interacted with
+ * @param firmware Firmware string reported by the scanner
+ * @param ssm State Machine
  * @param error 
  */
 static void
-check_firmware_version(FpDevice *dev, gchar *firmware,
-                                   FpiSsm* user_data, GError *error) {
+check_firmware_version_callback(FpDevice *dev, gchar *firmware,
+                                   FpiSsm* ssm, GError *error) {
   if (error) {
-    fpi_ssm_mark_failed(user_data, error);
+    fpi_ssm_mark_failed(ssm, error);
     return;
   }
 
@@ -144,23 +123,24 @@ check_firmware_version(FpDevice *dev, gchar *firmware,
   if (strcmp(firmware, GOODIX_53XD_FIRMWARE_VERSION)) {
     g_set_error(&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
                 "Invalid device firmware: \"%s\"", firmware);
-    fpi_ssm_mark_failed(user_data, error);
+    fpi_ssm_mark_failed(ssm, error);
     return;
   }
 
-  fpi_ssm_next_state(user_data);
+  fpi_ssm_next_state(ssm);
 }
 /**
  * @brief Checks that device was reset properly and advances to next state
- * 
- * @param dev 
- * @param success 
- * @param number 
- * @param user_data 
+ * @details Used as callback when scanner responds to a reset request
+ * @param dev Scanner being reset
+ * @param success If reset was successfull or not
+ * @param number Magic reset number sent to device to trigger reset, should be
+ *               GOODIX_53XD_RESET_NUMBER
+ * @param ssm   State Machine for the operation 
  * @param error 
  */
 static void
-check_reset(FpDevice *dev, gboolean success, guint16 number,
+check_reset_callback(FpDevice *dev, gboolean success, guint16 number,
                         FpiSsm* user_data, GError *error) {
   if (error) {
     fpi_ssm_mark_failed(user_data, error);
@@ -187,30 +167,30 @@ check_reset(FpDevice *dev, gboolean success, guint16 number,
 }
 /**
  * @brief Check if preshared key is as expected then advances to next state
- * 
- * @param dev 
- * @param success 
- * @param flags 
- * @param psk 
- * @param length 
- * @param user_data 
+ * @details Used as callback when device responds to psk read request
+ * @param dev Device having preshared key checked
+ * @param success Whether the psk is readable
+ * @param flags TODO
+ * @param psk Preshared Key
+ * @param length Number of bytes in preshared key
+ * @param ssm State machine for operation 
  * @param error 
  */
 static void
-check_preset_psk_read(FpDevice *dev, gboolean success,
+check_preset_psk_read_callback(FpDevice *dev, gboolean success,
                                   guint32 flags, guint8 *psk, guint16 length,
-                                  FpiSsm* user_data, GError *error) {
+                                  FpiSsm* ssm, GError *error) {
   g_autofree gchar *psk_str = data_to_str(psk, length);
 
   if (error) {
-    fpi_ssm_mark_failed(user_data, error);
+    fpi_ssm_mark_failed(ssm, error);
     return;
   }
 
   if (!success) {
     g_set_error(&error, G_IO_ERROR, G_IO_ERROR_FAILED,
                 "Failed to read PSK from device");
-    fpi_ssm_mark_failed(user_data, error);
+    fpi_ssm_mark_failed(ssm, error);
     return;
   }
 
@@ -220,65 +200,65 @@ check_preset_psk_read(FpDevice *dev, gboolean success,
   if (flags != GOODIX_53XD_PSK_FLAGS) {
     g_set_error(&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
                 "Invalid device PSK flags: 0x%08x", flags);
-    fpi_ssm_mark_failed(user_data, error);
+    fpi_ssm_mark_failed(ssm, error);
     return;
   }
 
   if (length != sizeof(goodix_53xd_psk_0)) {
     g_set_error(&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
                 "Invalid device PSK: 0x%s", psk_str);
-    fpi_ssm_mark_failed(user_data, error);
+    fpi_ssm_mark_failed(ssm, error);
     return;
   }
 
   if (memcmp(psk, goodix_53xd_psk_0, sizeof(goodix_53xd_psk_0))) {
     g_set_error(&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
                 "Invalid device PSK: 0x%s", psk_str);
-    fpi_ssm_mark_failed(user_data, error);
+    fpi_ssm_mark_failed(ssm, error);
     return;
   }
 
-  fpi_ssm_next_state(user_data);
+  fpi_ssm_next_state(ssm);
 }
 /**
- * @brief Checks for error and advances to next state
- * 
- * @param dev 
- * @param user_data 
+ * @brief Checks that scanner did not respond with error on request for idle
+ * @details Callback when device is in idle state
+ * @param dev Device to check
+ * @param ssm State machine for operation
  * @param err 
  */
 static void
-check_idle(FpDevice* dev, FpiSsm* user_data, GError* err)
+check_idle_callback(FpDevice* dev, FpiSsm* ssm, GError* err)
 {
 
     if (err) {
-        fpi_ssm_mark_failed(user_data, err);
+        fpi_ssm_mark_failed(ssm, err);
         return;
     }
-    fpi_ssm_next_state(user_data);
+    fpi_ssm_next_state(ssm);
 }
 /**
  * @brief Checks config was uploaded properly and moves to next state
- * 
- * @param dev 
- * @param success 
- * @param user_data 
+ * @details Used as callback when device responds to uploading a config
+ * @param dev Device where config is uploaded
+ * @param success If config was uploaded properly
+ * @param ssm State machine for operation
  * @param error 
  */
 static void
-check_config_upload(FpDevice* dev, gboolean success,
-                                FpiSsm* user_data, GError* error)
+check_config_upload_callback(FpDevice* dev, gboolean success,
+                                FpiSsm* ssm, GError* error)
 {
     if (error) {
-        fpi_ssm_mark_failed(user_data, error);
+        fpi_ssm_mark_failed(ssm, error);
     }
     else if (!success) {
-        fpi_ssm_mark_failed(user_data,
+        fpi_ssm_mark_failed(ssm,
                             g_error_new(FP_DEVICE_ERROR, FP_DEVICE_ERROR_PROTO,
                                         "failed to upload mcu config"));
     }
     else {
-        fpi_ssm_next_state(user_data);
+        fpi_ssm_next_state(ssm);
     }
 }
 // TODO
@@ -308,68 +288,76 @@ read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
  *  the state machine moves to the next state. This function looks at the 
  *  current state of the ssm responds accordingly
  * 
- * @param ssm 
- * @param dev 
+ * @param ssm State machine that is being advanced
+ * @param dev Device state machine is tracking
  */
 static void
 activate_run_state(FpiSsm* ssm, FpDevice* dev)
 {
 
     switch (fpi_ssm_get_cur_state(ssm)) {
-    case ACTIVATE_READ_AND_NOP:
-        // Nop seems to clear the previous command buffer. But we are
-        // unable to do so.
-        goodix_start_read_loop(dev);
-        goodix_send_nop(dev, (GoodixNoneCallback)goodix_send_callback, (gpointer*)ssm);
-        break;
+        case ACTIVATE_READ_AND_NOP:
+            // Nop seems to clear the previous command buffer. But we are
+            // unable to do so.
+            goodix_start_read_loop(dev);
+            goodix_send_nop(dev, goodix_send_callback, (gpointer*)ssm);
+            break;
 
-    case ACTIVATE_ENABLE_CHIP:
-        goodix_send_enable_chip(dev, TRUE, (GoodixNoneCallback)goodix_send_callback, (gpointer*)ssm);
-        break;
+        case ACTIVATE_ENABLE_CHIP:
+            goodix_send_enable_chip(dev, TRUE,
+                                     goodix_send_callback, (gpointer*)ssm);
+            break;
 
-    case ACTIVATE_NOP:
-        goodix_send_nop(dev, (GoodixNoneCallback)goodix_send_callback, ssm);
-        break;
+        case ACTIVATE_NOP:
+            goodix_send_nop(dev, goodix_send_callback, ssm);
+            break;
 
-    case ACTIVATE_CHECK_FW_VER:
-        goodix_send_firmware_version(dev, (GoodixFirmwareVersionCallback)check_firmware_version, (gpointer*)ssm);
-        break;
+        case ACTIVATE_CHECK_FW_VER:
+            goodix_send_firmware_version(dev, 
+                            check_firmware_version_callback, (gpointer*)ssm);
+            break;
 
-    case ACTIVATE_CHECK_PSK:
-        goodix_send_preset_psk_read(dev, GOODIX_53XD_PSK_FLAGS, 32,
-                                    (GoodixPresetPskReadCallback)check_preset_psk_read, (gpointer*)ssm);
-        break;
+        case ACTIVATE_CHECK_PSK:
+            goodix_send_preset_psk_read(dev, GOODIX_53XD_PSK_FLAGS, 
+                                        GOODIX53XD_PSK_LENGTH,
+                                        check_preset_psk_read_callback,
+                                        (gpointer*)ssm);
+            break;
 
-    case ACTIVATE_RESET:
-        goodix_send_reset(dev, TRUE, 20, (GoodixResetCallback)check_reset, (gpointer*)ssm);
-        break;
+        case ACTIVATE_RESET:
+            goodix_send_reset(dev, TRUE, 
+                                GOODIX53XD_SLEEP_TIME, check_reset_callback,
+                                (gpointer*)ssm);
+            break;
 
-    case ACTIVATE_OTP:
-        goodix_send_read_otp(dev, (GoodixDefaultCallback)read_otp_callback, (gpointer*)ssm);
-        break;
+        case ACTIVATE_OTP:
+            goodix_send_read_otp(dev, read_otp_callback, (gpointer*)ssm);
+            break;
 
-    case ACTIVATE_SET_MCU_IDLE:
-        goodix_send_mcu_switch_to_idle_mode(dev, 20, (GoodixNoneCallback)check_idle, (gpointer*)ssm);
-        break;
+        case ACTIVATE_SET_MCU_IDLE:
+            goodix_send_mcu_switch_to_idle_mode(dev, GOODIX53XD_SLEEP_TIME, 
+                                        check_idle_callback, (gpointer*)ssm);
+            break;
 
-    case ACTIVATE_SET_MCU_CONFIG:
-        goodix_send_upload_config_mcu(dev, goodix_53xd_config,
-                                        sizeof(goodix_53xd_config), NULL,
-                                        (GoodixSuccessCallback)check_config_upload, (gpointer*)ssm);
-        break;
-    default: // TODO What happens if we have a bad state?
+        case ACTIVATE_SET_MCU_CONFIG:
+            goodix_send_upload_config_mcu(dev, goodix_53xd_config,
+                                            sizeof(goodix_53xd_config), NULL,
+                                            check_config_upload_callback,
+                                            (gpointer*)ssm);
+            break;
+        default: // TODO What happens if we have a bad state?
     }
 }
 /**
  * @brief Checks for error, then marks device activation as complete if no error
- * @details Called when finishing device activation, either successful or not
+ * @details Callback when device responds to request for tls communication
  * 
- * @param dev 
+ * @param dev Device that tls is activated for
  * @param user_data 
  * @param error 
  */
 static void
-tls_activation_complete(FpDevice* dev, FpiSsm* user_data,
+tls_activation_callback(FpDevice* dev, FpiSsm* user_data,
                                     GError* error)
 {
     if (error) {
@@ -392,7 +380,7 @@ activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 {
     G_DEBUG_HERE();
     if (!error)
-        goodix_tls(dev, (GoodixNoneCallback)tls_activation_complete, NULL);
+        goodix_tls(dev, (GoodixNoneCallback)tls_activation_callback, NULL);
     else {
         fp_err("failed during activation: %s (code: %d)", error->message,
                error->code);
@@ -699,7 +687,7 @@ scan_run_state(FpiSsm* ssm, FpDevice* dev)
         fpi_image_device_report_finger_status(img_dev, TRUE);
         guint16 payload = {0x05}; 
         goodix_send_write_sensor_register(dev,
-                                     556, payload, (GoodixNoneCallback)scan_get_img, ssm);
+                        556, payload, (GoodixNoneCallback)scan_get_img, ssm);
         break;
     }
 }
@@ -872,14 +860,15 @@ fpi_device_goodixtls53xd_class_init(FpiDeviceGoodixTls53XDClass *class) {
   gx_class->ep_in = GOODIX_53XD_EP_IN;
   gx_class->ep_out = GOODIX_53XD_EP_OUT;
 
-  dev_class->id = "goodixtls53xd";
-  dev_class->full_name = "Goodix TLS Fingerprint Sensor 53XD";
+  dev_class->id = GOODIX53XD_DEVICE_ID;
+  dev_class->full_name = GOODIX53XD_DEVICE_NAME;
   dev_class->type = FP_DEVICE_TYPE_USB; 
   dev_class->id_table = id_table; // Devices supported by driver
 
   dev_class->scan_type = FP_SCAN_TYPE_PRESS; // Either scan or swipe
 
-  img_dev_class->bz3_threshold = 24; // Detection threshold
+  img_dev_class->bz3_threshold = GOODIX53XD_BZ3_THRESHOLD; // Detection 
+                                                           // threshold
   img_dev_class->img_width = GOODIX53XD_WIDTH; // Only given for constant width
   img_dev_class->img_height = GOODIX53XD_HEIGHT; // Same but height
 
