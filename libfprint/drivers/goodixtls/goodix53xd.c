@@ -69,13 +69,7 @@ G_DECLARE_FINAL_TYPE(FpiDeviceGoodixTls53XD, fpi_device_goodixtls53xd, FPI,
 
 G_DEFINE_TYPE(FpiDeviceGoodixTls53XD, fpi_device_goodixtls53xd,
               FPI_TYPE_DEVICE_GOODIXTLS);
-              
-typedef struct
-_frame_processing_info {
- FpiDeviceGoodixTls53XD* dev;
- GSList** frames;
 
-} frame_processing_info;
 // ---- ACTIVE SECTION START ----
 
 /**
@@ -345,7 +339,7 @@ tls_activation_complete(FpDevice* dev, gpointer user_data,
     fpi_image_device_activate_complete(image_dev, error);
 }
 /**
- * @brief Activates TLS if no errors have occured, otherwise spit an error
+ * @brief Checks 
  * 
  * @param ssm 
  * @param dev 
@@ -369,15 +363,7 @@ activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 // -----------------------------------------------------------------------------
 
 // ---- SCAN SECTION START ----
-/**
- * @brief Checks for errors and moves to next state in ssm
- * 
- * @param dev 
- * @param data 
- * @param len 
- * @param ssm 
- * @param err 
- */
+
 static void
 check_none_cmd(FpDevice* dev, guint8* data, guint16 len,
                            gpointer ssm, GError* err)
@@ -388,15 +374,7 @@ check_none_cmd(FpDevice* dev, guint8* data, guint16 len,
     }
     fpi_ssm_next_state(ssm);
 }
-/**
- * @brief Get the pixel located at (x,y)
- * 
- * @param ctx 
- * @param frame 
- * @param x 
- * @param y 
- * @return unsigned char 
- */
+
 static unsigned char
 get_pix(struct fpi_frame_asmbl_ctx* ctx,
                              struct fpi_frame* frame, unsigned int x,
@@ -404,12 +382,7 @@ get_pix(struct fpi_frame_asmbl_ctx* ctx,
 {
     return frame->data[x + y * GOODIX53XD_WIDTH];
 }
-/**
- * @brief Transforms raw image data from the sensor to usable image data
- * 
- * @param frame 
- * @param raw_frame 
- */
+
 static void
 decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
                          const guint8* raw_frame)
@@ -485,12 +458,7 @@ process_frame(Goodix53xdPix* raw_frame, frame_processing_info* info)
 
     *(info->frames) = g_slist_append(*(info->frames), frame);
 }
-/**
- * @brief Save the frame to an internal buffer
- * 
- * @param self 
- * @param raw 
- */
+
 static void
 save_frame(FpiDeviceGoodixTls53XD* self, guint8* raw)
 {
@@ -499,15 +467,7 @@ save_frame(FpiDeviceGoodixTls53XD* self, guint8* raw)
     decode_frame(frame, raw);
     self->frames = g_slist_append(self->frames, frame);
 }
-/**
- * @brief 
- * 
- * @param dev 
- * @param data 
- * @param len 
- * @param ssm 
- * @param err 
- */
+
 static void
 scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
                              gpointer ssm, GError* err)
