@@ -79,7 +79,7 @@ _frame_processing_info {
 // ---- ACTIVE SECTION START ----
 
 /**
- * @brief Checks that the sent command executed properly, then moves to next
+ * @brief Checks that the send command executed properly, then moves to next
  *        state in the state machine
  * 
  * @param dev 
@@ -281,7 +281,7 @@ check_config_upload(FpDevice* dev, gboolean success,
         fpi_ssm_next_state(user_data);
     }
 }
-// TODO
+
 static void
 read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
                               FpiSsm* ssm, GError* err)
@@ -596,11 +596,10 @@ scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
     }
 }
 /**
- * @brief Request an image from the scanner
- * @details Sends a scan request to the fingerprint scanner and advances the
- *          state machine
- * @param dev Device to request an image from
- * @param ssm State machine for scan process
+ * @brief 
+ * 
+ * @param dev 
+ * @param ssm 
  */
 static void
 scan_get_img(FpDevice* dev, FpiSsm* ssm, GError* error)
@@ -620,19 +619,7 @@ scan_get_img(FpDevice* dev, FpiSsm* ssm, GError* error)
                         sizeof(payload), NULL, TRUE, GOODIX_TIMEOUT, TRUE,
                         goodix_receive_default, cb_info);
 }
-/**
- * @brief Send command to device
- * @details Wraps goodix_send_protocol with some defaults, m
- *          might not be necessary
- * @param dev Device to send command to
- * @param cmd Command to send
- * @param reply Whether the command expects a replay from the scanner
- * @param mode ??
- * @param length How long the user_data is
- * @param free_func Function to call when destroyed??
- * @param callback Callback when command is finished
- * @param user_data Usually the data to send to be process by the scanner
- */
+
 static void
 goodix_send_mcu(FpDevice *dev, guint8 cmd, gboolean reply,
                 guint8 *mode, guint16 length,
@@ -657,14 +644,7 @@ goodix_send_mcu(FpDevice *dev, guint8 cmd, gboolean reply,
   goodix_send_protocol(dev, cmd, mode, length,
                        free_func, TRUE, 0, reply, NULL, NULL);
 }
-/**
- * @brief   Performs actions related to scanning depending on the current state
- *          of the state machine
- * @details Sends the next command needed for the scanning process, might
- *          be redunant in the long run
- * @param ssm State machine of scan process
- * @param dev Device to communicate with
- */
+
 static void
 scan_run_state(FpiSsm* ssm, FpDevice* dev)
 {
@@ -731,13 +711,7 @@ scan_run_state(FpiSsm* ssm, FpDevice* dev)
 //     }
 //     scan_get_img(dev, user_data, error);
 // }
-/**
- * @brief Checks that a scan completed successfully with no erors
- * @details Used as a callback in the scanning process, mostly just a stub
- * @param ssm State machine for scan process
- * @param dev Device doing the scanning
- * @param error Any error that occuring during scanning
- */
+
 static void
 scan_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 {
@@ -748,12 +722,6 @@ scan_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
     fp_dbg("finished scan");
 }
 
-/**
- * @brief Starts the scannning process to get an image from the device
- * @details Calls fpi_ssm_start to run through the scanning process, creating a
- *          state machine for the process
- * @param dev Device to get an image from
- */
 static void
 scan_start(FpiDeviceGoodixTls53XD* dev)
 {
@@ -767,11 +735,6 @@ scan_start(FpiDeviceGoodixTls53XD* dev)
 
 // ---- DEV SECTION START ----
 
-/**
- * @brief Claims the device from libfprint, gets it ready for use by the driver
- * 
- * @param img_dev Device to claim and open
- */
 static void
 dev_init(FpImageDevice *img_dev) {
   FpDevice *dev = FP_DEVICE(img_dev);
@@ -784,11 +747,7 @@ dev_init(FpImageDevice *img_dev) {
 
   fpi_image_device_open_complete(img_dev, NULL);
 }
-/**
- * @brief Release device back to libfprint, disconnect driver from it
- * 
- * @param img_dev Device to release
- */
+
 static void
 dev_deinit(FpImageDevice *img_dev) {
   FpDevice *dev = FP_DEVICE(img_dev);
@@ -801,24 +760,14 @@ dev_deinit(FpImageDevice *img_dev) {
 
   fpi_image_device_close_complete(img_dev, NULL);
 }
-/**
- * @brief Startes the activation process with coresponding states in enum
- * 
- * @param img_dev Image device to activate
- */
+
 static void
 dev_activate(FpImageDevice *img_dev) {
     FpDevice* dev = FP_DEVICE(img_dev);
     FpiSsm* ssm = fpi_ssm_new(dev, activate_run_state, ACTIVATE_NUM_STATES);
     fpi_ssm_start(ssm, activate_complete);
 }
-/**
- * @brief Called each time dev state changes, used to start the next step of
- *          whatever process it is working on
- * 
- * @param img_dev Scanner doing the work
- * @param state Current state of the device
- */
+
 static void
 dev_change_state(FpImageDevice* img_dev, FpiImageDeviceState state)
 {
@@ -829,16 +778,10 @@ dev_change_state(FpImageDevice* img_dev, FpiImageDeviceState state)
         scan_start(self);
     }
 }
-// TODO
+
 static void
 goodix53xd_reset_state(FpiDeviceGoodixTls53XD* self) {}
 
-/**
- * @brief Deactivates device, no longer being used but still claimed by driver
- *        and ready for next use
- * 
- * @param img_dev Device to release
- */
 static void
 dev_deactivate(FpImageDevice *img_dev) {
     FpDevice* dev = FP_DEVICE(img_dev);
@@ -889,12 +832,12 @@ fpi_device_goodixtls53xd_class_init(FpiDeviceGoodixTls53XDClass *class) {
   img_dev_class->activate = dev_activate;   // Called to start finger scanning 
                                             // and/or finger detection
   img_dev_class->deactivate = dev_deactivate;   // Called to stop waiting
-                                                // for finger
+                                                //for finger
   img_dev_class->change_state = dev_change_state;   // Called anytime the device
                                                     // changes state, such as
                                                     // going from idle to
                                                     // waiting for finger
  
-  // Auto attaches features that USB image devices are expected to have
+
   fpi_device_class_auto_initialize_features(dev_class);
 }
