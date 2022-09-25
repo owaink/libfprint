@@ -97,10 +97,8 @@ goodix_53xd_config[] = {
 
 /*
     Another binary blob from the proprietary windows driver, switches to
-    "fdt mode". No idea what fdt stands for. Theories include:
-        Finger Down Touch
-        Finger Detection Type
-        Flattened Device Tree
+    "fdt mode". No idea what fdt stands for. Could stand for "Finger Down Touch"
+    or "Flattened Device Tree"?
     
     21 bytes in length (weird size but ok)
 */
@@ -114,8 +112,9 @@ fdt_switch_state_mode_53xd[] = {
 };
 
 /*
-    Another binary blob from the proprietary windows driver, switches the mcu to 
+    Another binary blob from the proprietary windows driver, switches to
     "fdt down" or deactivates the fdt? No idea what fdt stands for.
+    Could stand for "Finger Down Touch" or "Flattened Device Tree"?
     
     21 bytes in length (weird size but ok)
 */
