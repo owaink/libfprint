@@ -10,7 +10,6 @@
     "new": "c",
     "streambuf": "c",
     "functional": "c",
-    "typeinfo": "c",
-    "stop_token": "c"
+    "typeinfo": "c"
   }
 }
