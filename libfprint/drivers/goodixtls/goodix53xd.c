@@ -72,13 +72,7 @@ G_DEFINE_TYPE(FpiDeviceGoodixTls53XD, fpi_device_goodixtls53xd,
 
 // ---- ACTIVE SECTION START ----
 
-/**
- * @brief Checks nothing and moves the state machine to the next state
- * 
- * @param dev 
- * @param user_data 
- * @param error 
- */
+
 static void
 check_none(FpDevice *dev, gpointer user_data, GError *error) {
   if (error) {
@@ -88,14 +82,7 @@ check_none(FpDevice *dev, gpointer user_data, GError *error) {
 
   fpi_ssm_next_state(user_data);
 }
-/**
- * @brief Checks that firmware name is expected and advances to next state
- * 
- * @param dev 
- * @param firmware 
- * @param user_data 
- * @param error 
- */
+
 static void
 check_firmware_version(FpDevice *dev, gchar *firmware,
                                    gpointer user_data, GError *error) {
@@ -115,15 +102,7 @@ check_firmware_version(FpDevice *dev, gchar *firmware,
 
   fpi_ssm_next_state(user_data);
 }
-/**
- * @brief Checks that device was reset properly and advances to next state
- * 
- * @param dev 
- * @param success 
- * @param number 
- * @param user_data 
- * @param error 
- */
+
 static void
 check_reset(FpDevice *dev, gboolean success, guint16 number,
                         gpointer user_data, GError *error) {
@@ -150,17 +129,7 @@ check_reset(FpDevice *dev, gboolean success, guint16 number,
 
   fpi_ssm_next_state(user_data);
 }
-/**
- * @brief Check if preshared key is as expected then advances to next state
- * 
- * @param dev 
- * @param success 
- * @param flags 
- * @param psk 
- * @param length 
- * @param user_data 
- * @param error 
- */
+
 static void
 check_preset_psk_read(FpDevice *dev, gboolean success,
                                   guint32 flags, guint8 *psk, guint16 length,
@@ -205,13 +174,7 @@ check_preset_psk_read(FpDevice *dev, gboolean success,
 
   fpi_ssm_next_state(user_data);
 }
-/**
- * @brief Checks for error and advances to next state
- * 
- * @param dev 
- * @param user_data 
- * @param err 
- */
+
 static void
 check_idle(FpDevice* dev, gpointer user_data, GError* err)
 {
@@ -260,15 +223,11 @@ read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
     fpi_ssm_next_state(ssm);
 }
 
-/**
- * @brief Runs functions depending on current state of SSM
- * @details This is the main part of the driver. This function runs every time
- *  the state machine moves to the next state. This function looks at the 
- *  current state of the ssm responds accordingly
- * 
- * @param ssm 
- * @param dev 
- */
+/*
+    This is the main part of the driver. This function runs every time
+    the state machine moves to the next state. This function looks at the 
+    current state of the ssm responds accordingly
+*/
 static void
 activate_run_state(FpiSsm* ssm, FpDevice* dev)
 {
@@ -318,14 +277,7 @@ activate_run_state(FpiSsm* ssm, FpDevice* dev)
     default: // TODO What happens if we have a bad state?
     }
 }
-/**
- * @brief Checks for error, then marks device activation as complete if no error
- * @details Called when finishing device activation, either successful or not
- * 
- * @param dev 
- * @param user_data 
- * @param error 
- */
+
 static void
 tls_activation_complete(FpDevice* dev, gpointer user_data,
                                     GError* error)
@@ -338,13 +290,7 @@ tls_activation_complete(FpDevice* dev, gpointer user_data,
 
     fpi_image_device_activate_complete(image_dev, error);
 }
-/**
- * @brief Checks 
- * 
- * @param ssm 
- * @param dev 
- * @param error 
- */
+
 static void
 activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 {
@@ -654,7 +600,7 @@ scan_run_state(FpiSsm* ssm, FpDevice* dev)
         break;
     case SCAN_STAGE_GET_IMG:
         fpi_image_device_report_finger_status(img_dev, TRUE);
-        guint16 payload = {0x05}; 
+        guint16 payload = {0x05}; //, 0x03};
         goodix_send_write_sensor_register(dev,
                                      556, payload, write_sensor_complete, ssm);
         break;
