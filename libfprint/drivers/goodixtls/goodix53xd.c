@@ -206,6 +206,22 @@ static void check_config_upload(FpDevice* dev, gboolean success,
         fpi_ssm_next_state(user_data);
     }
 }
+/* 
+    Unused ¯\_(ツ)_/¯
+*/
+static void check_powerdown_scan_freq(FpDevice* dev, gboolean success,
+                                      gpointer user_data, GError* error)
+{
+    if (error) {
+        fpi_ssm_mark_failed(user_data, error);
+    }
+    else if (!success) {
+        fpi_ssm_mark_failed(user_data,
+                            g_error_new(FP_DEVICE_ERROR, FP_DEVICE_ERROR_PROTO,
+                                        "failed to set powerdown freq"));
+    }
+    fpi_ssm_next_state(user_data);
+}
 
 enum otp_write_states {
     OTP_WRITE_1,
@@ -213,6 +229,32 @@ enum otp_write_states {
 
     OTP_WRITE_NUM,
 };
+
+
+/*
+    Unused ¯\_(ツ)_/¯
+*/
+static void otp_write_run(FpiSsm* ssm, FpDevice* dev)
+{
+    /*
+    FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(dev);
+    switch (fpi_ssm_get_cur_state(ssm)) {
+    case OTP_WRITE_1:
+        guint8 sensor1[] = {0x0a, 0x02};
+        goodix_send_write_sensor_register(
+            dev, 0x022c, sensor1, check_none,
+            ssm);
+        break;
+    case OTP_WRITE_2:
+        guint8 sensor2[] = {0x0a, 0x03};
+        goodix_send_write_sensor_register(
+            dev, 0x022c, sensor2, check_none,
+            ssm);
+        fpi_ssm_next_state(ssm);
+        break;
+    }
+    */
+}
 
 static void read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
                               gpointer ssm, GError* err)
@@ -336,6 +378,9 @@ static unsigned char get_pix(struct fpi_frame_asmbl_ctx* ctx,
     return frame->data[x + y * GOODIX53XD_WIDTH];
 }
 
+// Bitdepth is 12, but we have to fit it in a byte. This is unused, no squashing is done
+static unsigned char squash(int v) { return v / 16; }
+
 static void decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
                          const guint8* raw_frame)
 {
@@ -356,6 +401,41 @@ static void decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
         }
     }
 }
+/*
+    Unused, post processing doesn't appear to be done
+*/
+static int goodix_cmp_short(const void* a, const void* b)
+{
+    return (int) (*(short*) a - *(short*) b);
+}
+
+
+/*
+    Unused, post processing doesn't appear to be done
+*/
+static void rotate_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE])
+{
+    Goodix53xdPix buff[GOODIX53XD_FRAME_SIZE];
+
+    for (int y = 0; y != GOODIX53XD_HEIGHT; ++y) {
+        for (int x = 0; x != GOODIX53XD_WIDTH; ++x) {
+            buff[x * GOODIX53XD_WIDTH + y] = frame[x + y * GOODIX53XD_WIDTH];
+        }
+    }
+    memcpy(frame, buff, GOODIX53XD_FRAME_SIZE);
+}
+
+
+/*
+    Unused, post processing doesn't appear to be done
+*/
+static void squash_frame(Goodix53xdPix* frame, guint8* squashed)
+{
+    for (int i = 0; i != GOODIX53XD_FRAME_SIZE; ++i) {
+        squashed[i] = squash(frame[i]);
+    }
+}
+
 
 /**
  * @brief Squashes the 12 bit pixels of a raw frame into the 4 bit pixels used
@@ -398,6 +478,34 @@ static void squash_frame_linear(Goodix53xdPix* frame, guint8* squashed)
  * @param frame
  * @param background
  */
+
+/* 
+    Unused, maybe we don't need to process the frame?
+*/
+static gboolean postprocess_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
+                                  Goodix53xdPix background[GOODIX53XD_FRAME_SIZE])
+{
+    int sum = 0;
+    for (int i = 0; i != GOODIX53XD_FRAME_SIZE; ++i) {
+        Goodix53xdPix* og_px = frame + i;
+        Goodix53xdPix bg_px =  background[i];
+            if (bg_px > *og_px) {
+                *og_px = 0;
+            }
+            else {
+                *og_px -= bg_px;
+            }
+            *og_px = MAX(bg_px - *og_px, 0);
+            *og_px = MAX(*og_px - bg_px, 0);
+            sum += *og_px;
+            
+    }
+    if (sum == 0) {
+        fp_warn("frame darker than background, finger on scanner during "
+                "calibration?");
+    }
+    return sum != 0;
+}
 
 typedef struct _frame_processing_info {
     FpiDeviceGoodixTls53XD* dev;
@@ -474,6 +582,52 @@ enum scan_empty_img_state {
 
     SCAN_EMPTY_NUM,
 };
+
+/* 
+    Unused, potentially for debugging?
+*/
+static void on_scan_empty_img(FpDevice* dev, guint8* data, guint16 length,
+                              gpointer ssm, GError* error)
+{
+    if (error) {
+        fpi_ssm_mark_failed(ssm, error);
+        return;
+    }
+    FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(dev);
+    decode_frame(self->empty_img, data);
+    fpi_ssm_next_state(ssm);
+}
+
+
+/*  
+    Unused, potentially for debugging?
+*/
+static void scan_empty_run(FpiSsm* ssm, FpDevice* dev)
+{
+
+    switch (fpi_ssm_get_cur_state(ssm)) {
+        case SCAN_EMPTY_NAV0:
+            goodix_send_nav_0(dev, check_none_cmd, ssm);
+            break;
+
+        case SCAN_EMPTY_GET_IMG: {
+            //FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
+            //FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
+            //guint8 payload[] = {0x41, 0x03, self->otp[26], 0x00, self->otp[26] - 6, 0x00, self->otp[45], 0x00, self->otp[45] - 4, 0x00};
+            goodix_tls_read_image(dev, on_scan_empty_img, ssm);
+            break;
+        }
+    }
+}
+
+
+/* 
+    Unused, potentially for debugging?
+*/
+static void scan_empty_img(FpDevice* dev, FpiSsm* ssm)
+{
+    fpi_ssm_start_subsm(ssm, fpi_ssm_new(dev, scan_empty_run, SCAN_EMPTY_NUM));
+}
 
 static void goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
                                gpointer user_data)
@@ -687,9 +841,12 @@ static void dev_deinit(FpImageDevice *img_dev) {
 
 static void dev_activate(FpImageDevice *img_dev) {
     FpDevice* dev = FP_DEVICE(img_dev);
-    FpiSsm* ssm = fpi_ssm_new(dev, activate_run_state, ACTIVATE_NUM_STATES);
-    fpi_ssm_start(ssm, activate_complete);
+
+    fpi_ssm_start(fpi_ssm_new(dev, activate_run_state, ACTIVATE_NUM_STATES),
+                  activate_complete);
 }
+
+
 
 static void dev_change_state(FpImageDevice* img_dev, FpiImageDeviceState state)
 {
