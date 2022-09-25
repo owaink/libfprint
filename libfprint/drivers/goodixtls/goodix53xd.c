@@ -72,34 +72,20 @@ G_DEFINE_TYPE(FpiDeviceGoodixTls53XD, fpi_device_goodixtls53xd,
 
 // ---- ACTIVE SECTION START ----
 
-/*
-    These are the states the driver iterates through when a device it supports
-    is "activated", with the final state just being a marker of how many states
-    there are in total
-
-    TODO: Checking the PSK and firmware can probably be moved to device init
-*/
-enum
-activate_states {
-    ACTIVATE_READ_AND_NOP,  // First, send a no-operation
-                            // command to get a clean slate
-    ACTIVATE_ENABLE_CHIP,   // Second, tell the sensor to start
-                            // listening for a finger
-    ACTIVATE_NOP,           // Third, do nothing...? TODO
-    ACTIVATE_CHECK_FW_VER,  // Fourth, check the running firmware
-                            // is what we expect
-    ACTIVATE_CHECK_PSK,     // Fifth, check that the preshared key
-                            // used for TLS communication is as expected
-    ACTIVATE_RESET,         // Sixth, no idea TODO
-    ACTIVATE_OTP,           // Seventh, establish one time
-                            // password for TLS communication
-    ACTIVATE_SET_MCU_IDLE,  // Eighth, tell the sensor to idle
-    ACTIVATE_SET_MCU_CONFIG,// Ninth, pass configuration sensor
-    ACTIVATE_NUM_STATES,    // Number of states in state machine, currently nine
+enum activate_states {
+    ACTIVATE_READ_AND_NOP,
+    ACTIVATE_ENABLE_CHIP,
+    ACTIVATE_NOP,
+    ACTIVATE_CHECK_FW_VER,
+    ACTIVATE_CHECK_PSK,
+    ACTIVATE_RESET,
+    ACTIVATE_OTP,
+    ACTIVATE_SET_MCU_IDLE,
+    ACTIVATE_SET_MCU_CONFIG,
+    ACTIVATE_NUM_STATES,
 };
 
-static void
-check_none(FpDevice *dev, gpointer user_data, GError *error) {
+static void check_none(FpDevice *dev, gpointer user_data, GError *error) {
   if (error) {
     fpi_ssm_mark_failed(user_data, error);
     return;
@@ -108,8 +94,7 @@ check_none(FpDevice *dev, gpointer user_data, GError *error) {
   fpi_ssm_next_state(user_data);
 }
 
-static void
-check_firmware_version(FpDevice *dev, gchar *firmware,
+static void check_firmware_version(FpDevice *dev, gchar *firmware,
                                    gpointer user_data, GError *error) {
   if (error) {
     fpi_ssm_mark_failed(user_data, error);
@@ -128,8 +113,7 @@ check_firmware_version(FpDevice *dev, gchar *firmware,
   fpi_ssm_next_state(user_data);
 }
 
-static void
-check_reset(FpDevice *dev, gboolean success, guint16 number,
+static void check_reset(FpDevice *dev, gboolean success, guint16 number,
                         gpointer user_data, GError *error) {
   if (error) {
     fpi_ssm_mark_failed(user_data, error);
@@ -155,8 +139,7 @@ check_reset(FpDevice *dev, gboolean success, guint16 number,
   fpi_ssm_next_state(user_data);
 }
 
-static void
-check_preset_psk_read(FpDevice *dev, gboolean success,
+static void check_preset_psk_read(FpDevice *dev, gboolean success,
                                   guint32 flags, guint8 *psk, guint16 length,
                                   gpointer user_data, GError *error) {
   g_autofree gchar *psk_str = data_to_str(psk, length);
@@ -199,9 +182,7 @@ check_preset_psk_read(FpDevice *dev, gboolean success,
 
   fpi_ssm_next_state(user_data);
 }
-
-static void
-check_idle(FpDevice* dev, gpointer user_data, GError* err)
+static void check_idle(FpDevice* dev, gpointer user_data, GError* err)
 {
 
     if (err) {
@@ -210,9 +191,7 @@ check_idle(FpDevice* dev, gpointer user_data, GError* err)
     }
     fpi_ssm_next_state(user_data);
 }
-
-static void
-check_config_upload(FpDevice* dev, gboolean success,
+static void check_config_upload(FpDevice* dev, gboolean success,
                                 gpointer user_data, GError* error)
 {
     if (error) {
@@ -228,16 +207,14 @@ check_config_upload(FpDevice* dev, gboolean success,
     }
 }
 
-enum
-otp_write_states {
+enum otp_write_states {
     OTP_WRITE_1,
     OTP_WRITE_2,
 
     OTP_WRITE_NUM,
 };
 
-static void
-read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
+static void read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
                               gpointer ssm, GError* err)
 {
     if (err) {
@@ -256,13 +233,7 @@ read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
     fpi_ssm_next_state(ssm);
 }
 
-/*
-    This is the main part of the driver. This function runs every time
-    the state machine moves to the next state. This function looks at the 
-    current state of the ssm responds accordingly
-*/
-static void
-activate_run_state(FpiSsm* ssm, FpDevice* dev)
+static void activate_run_state(FpiSsm* ssm, FpDevice* dev)
 {
 
     switch (fpi_ssm_get_cur_state(ssm)) {
@@ -307,12 +278,10 @@ activate_run_state(FpiSsm* ssm, FpDevice* dev)
                                         sizeof(goodix_53xd_config), NULL,
                                         check_config_upload, ssm);
         break;
-    default: // TODO What happens if we have a bad state?
     }
 }
 
-static void
-tls_activation_complete(FpDevice* dev, gpointer user_data,
+static void tls_activation_complete(FpDevice* dev, gpointer user_data,
                                     GError* error)
 {
     if (error) {
@@ -324,8 +293,7 @@ tls_activation_complete(FpDevice* dev, gpointer user_data,
     fpi_image_device_activate_complete(image_dev, error);
 }
 
-static void
-activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
+static void activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 {
     G_DEBUG_HERE();
     if (!error)
@@ -343,8 +311,7 @@ activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 
 // ---- SCAN SECTION START ----
 
-enum
-SCAN_STAGES {
+enum SCAN_STAGES {
     SCAN_STAGE_SWITCH_TO_FDT_DOWN,
     SCAN_STAGE_SWITCH_TO_FDT_MODE,
     SCAN_STAGE_GET_IMG,
@@ -352,8 +319,7 @@ SCAN_STAGES {
     SCAN_STAGE_NUM,
 };
 
-static void
-check_none_cmd(FpDevice* dev, guint8* data, guint16 len,
+static void check_none_cmd(FpDevice* dev, guint8* data, guint16 len,
                            gpointer ssm, GError* err)
 {
     if (err) {
@@ -363,16 +329,14 @@ check_none_cmd(FpDevice* dev, guint8* data, guint16 len,
     fpi_ssm_next_state(ssm);
 }
 
-static unsigned char
-get_pix(struct fpi_frame_asmbl_ctx* ctx,
+static unsigned char get_pix(struct fpi_frame_asmbl_ctx* ctx,
                              struct fpi_frame* frame, unsigned int x,
                              unsigned int y)
 {
     return frame->data[x + y * GOODIX53XD_WIDTH];
 }
 
-static void
-decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
+static void decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
                          const guint8* raw_frame)
 {
     Goodix53xdPix uncropped[GOODIX53XD_SCAN_WIDTH * GOODIX53XD_HEIGHT];
@@ -402,8 +366,7 @@ decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
  * @param frame
  * @param squashed
  */
-static void
-squash_frame_linear(Goodix53xdPix* frame, guint8* squashed)
+static void squash_frame_linear(Goodix53xdPix* frame, guint8* squashed)
 {
     Goodix53xdPix min = 0xffff;
     Goodix53xdPix max = 0;
@@ -436,15 +399,13 @@ squash_frame_linear(Goodix53xdPix* frame, guint8* squashed)
  * @param background
  */
 
-typedef struct
-_frame_processing_info {
+typedef struct _frame_processing_info {
     FpiDeviceGoodixTls53XD* dev;
     GSList** frames;
 
 } frame_processing_info;
 
-static void
-process_frame(Goodix53xdPix* raw_frame, frame_processing_info* info)
+static void process_frame(Goodix53xdPix* raw_frame, frame_processing_info* info)
 {
     struct fpi_frame* frame =
         g_malloc(GOODIX53XD_FRAME_SIZE + sizeof(struct fpi_frame));
@@ -454,16 +415,14 @@ process_frame(Goodix53xdPix* raw_frame, frame_processing_info* info)
     *(info->frames) = g_slist_append(*(info->frames), frame);
 }
 
-static void
-save_frame(FpiDeviceGoodixTls53XD* self, guint8* raw)
+static void save_frame(FpiDeviceGoodixTls53XD* self, guint8* raw)
 {
     Goodix53xdPix* frame = malloc(GOODIX53XD_FRAME_SIZE * sizeof(Goodix53xdPix));
     decode_frame(frame, raw);
     self->frames = g_slist_append(self->frames, frame);
 }
 
-static void
-scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
+static void scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
                              gpointer ssm, GError* err)
 {
     if (err) {
@@ -509,17 +468,15 @@ scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
     }
 }
 
-enum
-scan_empty_img_state {
+enum scan_empty_img_state {
     SCAN_EMPTY_NAV0,
     SCAN_EMPTY_GET_IMG,
 
     SCAN_EMPTY_NUM,
 };
 
-static void 
-goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length,
-                            GoodixImageCallback callback, gpointer user_data)
+static void goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
+                               gpointer user_data)
 {
 
   GoodixCallbackInfo *cb_info;
@@ -542,11 +499,8 @@ goodix_53xd_send_mcu_get_image(FpDevice* dev, guint8* payload, guint16 length,
                        NULL, NULL);
 }
 
-static void
-goodix_53xd_tls_read_image(FpDevice* dev, guint8* payload,
-                                        guint16 length, 
-                                        GoodixImageCallback callback,
-                                        gpointer user_data)
+static void goodix_53xd_tls_read_image(FpDevice* dev, guint8* payload, guint16 length, GoodixImageCallback callback,
+                           gpointer user_data)
 {
   g_assert(callback);
   GoodixCallbackInfo *cb_info = malloc(sizeof(GoodixCallbackInfo));
@@ -557,8 +511,7 @@ goodix_53xd_tls_read_image(FpDevice* dev, guint8* payload,
   goodix_53xd_send_mcu_get_image(dev, payload, length, goodix_tls_ready_image_handler, cb_info);
 }
 
-static void
-scan_get_img(FpDevice* dev, FpiSsm* ssm)
+static void scan_get_img(FpDevice* dev, FpiSsm* ssm)
 {
     FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
@@ -566,29 +519,25 @@ scan_get_img(FpDevice* dev, FpiSsm* ssm)
     goodix_53xd_tls_read_image(dev, (guint8 *)&payload, sizeof(payload), scan_on_read_img, ssm);
 }
 
-const guint8
-fdt_switch_state_mode_53xd[] = {
+const guint8 fdt_switch_state_mode_53xd[] = {
     0x0d, 0x01, 0x28, 0x01, 0x22, 0x01, 0x28, 0x01,
     0x24, 0x01, 0x91, 0x91, 0x8b, 0x8b, 0x96, 0x96,
     0x91, 0x91, 0x98, 0x98, 0x90, 0x90, 0x92, 0x92,
     0x88, 0x88, 0x00
 };
 
-guint8
-fdt_switch_state_down_53xd[] = {
+guint8 fdt_switch_state_down_53xd[] = {
     0x8c, 0x01, 0x28, 0x01, 0x22, 0x01, 0x28, 0x01,
     0x24, 0x01, 0x91, 0x91, 0x8b, 0x8b, 0x96, 0x96,
     0x91, 0x91, 0x98, 0x98, 0x90, 0x90, 0x92, 0x92,
     0x88, 0x88, 0x00
 };
 
-static void
-goodix_send_mcu_switch_to_fdt_down_with_no_reply(FpDevice *dev, 
-                                                guint8 *mode,
-                                                guint16 length,
-                                                GDestroyNotify free_func,
-                                                GoodixDefaultCallback callback,
-                                                gpointer user_data)
+static void goodix_send_mcu_switch_to_fdt_down_with_no_reply(FpDevice *dev, guint8 *mode,
+                                        guint16 length,
+                                        GDestroyNotify free_func,
+                                        GoodixDefaultCallback callback,
+                                        gpointer user_data)
 {
   GoodixCallbackInfo *cb_info;
 
@@ -609,13 +558,11 @@ goodix_send_mcu_switch_to_fdt_down_with_no_reply(FpDevice *dev,
                        free_func, TRUE, 0, FALSE, NULL, NULL);
 }
 
-static void
-goodix_send_mcu_switch_to_fdt_mode_no_reply(FpDevice *dev, 
-                                            guint8 *mode,
-                                            guint16 length,
-                                            GDestroyNotify free_func,
-                                            GoodixDefaultCallback callback,
-                                            gpointer user_data)
+static void goodix_send_mcu_switch_to_fdt_mode_no_reply(FpDevice *dev, guint8 *mode,
+                                        guint16 length,
+                                        GDestroyNotify free_func,
+                                        GoodixDefaultCallback callback,
+                                        gpointer user_data)
 {
   GoodixCallbackInfo *cb_info;
 
@@ -636,8 +583,7 @@ goodix_send_mcu_switch_to_fdt_mode_no_reply(FpDevice *dev,
                        free_func, TRUE, 0, FALSE, NULL, NULL);
 }
 
-static void
-scan_run_state(FpiSsm* ssm, FpDevice* dev)
+static void scan_run_state(FpiSsm* ssm, FpDevice* dev)
 {
     FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
@@ -672,8 +618,7 @@ scan_run_state(FpiSsm* ssm, FpDevice* dev)
     }
 }
 
-static void
-receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len,
+static void receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len,
                            gpointer ssm, GError* err)
 {
     if (err) {
@@ -688,9 +633,7 @@ receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len,
                                         check_none_cmd, ssm);
 }
 
-static void
-write_sensor_complete(FpDevice *dev, 
-                                    gpointer user_data, GError *error) 
+static void write_sensor_complete(FpDevice *dev, gpointer user_data, GError *error) 
 {
     if (error) {
         fp_err("failed to scan: %s (code: %d)", error->message, error->code);
@@ -699,8 +642,7 @@ write_sensor_complete(FpDevice *dev,
     scan_get_img(dev, user_data);
 }
 
-static void
-scan_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
+static void scan_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 {
     if (error) {
         fp_err("failed to scan: %s (code: %d)", error->message, error->code);
@@ -709,8 +651,7 @@ scan_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
     fp_dbg("finished scan");
 }
 
-static void
-scan_start(FpiDeviceGoodixTls53XD* dev)
+static void scan_start(FpiDeviceGoodixTls53XD* dev)
 {
     fpi_ssm_start(fpi_ssm_new(FP_DEVICE(dev), scan_run_state, SCAN_STAGE_NUM),
                   scan_complete);
@@ -718,12 +659,9 @@ scan_start(FpiDeviceGoodixTls53XD* dev)
 
 // ---- SCAN SECTION END ----
 
-// -----------------------------------------------------------------------------
-
 // ---- DEV SECTION START ----
 
-static void
-dev_init(FpImageDevice *img_dev) {
+static void dev_init(FpImageDevice *img_dev) {
   FpDevice *dev = FP_DEVICE(img_dev);
   GError *error = NULL;
 
@@ -735,8 +673,7 @@ dev_init(FpImageDevice *img_dev) {
   fpi_image_device_open_complete(img_dev, NULL);
 }
 
-static void
-dev_deinit(FpImageDevice *img_dev) {
+static void dev_deinit(FpImageDevice *img_dev) {
   FpDevice *dev = FP_DEVICE(img_dev);
   GError *error = NULL;
 
@@ -748,15 +685,13 @@ dev_deinit(FpImageDevice *img_dev) {
   fpi_image_device_close_complete(img_dev, NULL);
 }
 
-static void
-dev_activate(FpImageDevice *img_dev) {
+static void dev_activate(FpImageDevice *img_dev) {
     FpDevice* dev = FP_DEVICE(img_dev);
     FpiSsm* ssm = fpi_ssm_new(dev, activate_run_state, ACTIVATE_NUM_STATES);
     fpi_ssm_start(ssm, activate_complete);
 }
 
-static void
-dev_change_state(FpImageDevice* img_dev, FpiImageDeviceState state)
+static void dev_change_state(FpImageDevice* img_dev, FpiImageDeviceState state)
 {
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
     G_DEBUG_HERE();
@@ -766,11 +701,9 @@ dev_change_state(FpImageDevice* img_dev, FpiImageDeviceState state)
     }
 }
 
-static void
-goodix53xd_reset_state(FpiDeviceGoodixTls53XD* self) {}
+static void goodix53xd_reset_state(FpiDeviceGoodixTls53XD* self) {}
 
-static void
-dev_deactivate(FpImageDevice *img_dev) {
+static void dev_deactivate(FpImageDevice *img_dev) {
     FpDevice* dev = FP_DEVICE(img_dev);
     goodix_reset_state(dev);
     GError* error = NULL;
@@ -781,19 +714,13 @@ dev_deactivate(FpImageDevice *img_dev) {
 
 // ---- DEV SECTION END ----
 
-static void
-fpi_device_goodixtls53xd_init(FpiDeviceGoodixTls53XD* self)
+static void fpi_device_goodixtls53xd_init(FpiDeviceGoodixTls53XD* self)
 {
     self->frames = g_slist_alloc();
 }
 
-/*
-    This is the only thing the rest of libfprint cares about. This tells
-    libfprint how to interact with the device, that it is a image based device,
-    usb based device, which endpoints to use for it, etc
-*/
-static void
-fpi_device_goodixtls53xd_class_init(FpiDeviceGoodixTls53XDClass *class) {
+static void fpi_device_goodixtls53xd_class_init(
+    FpiDeviceGoodixTls53XDClass *class) {
   FpiDeviceGoodixTlsClass *gx_class = FPI_DEVICE_GOODIXTLS_CLASS(class);
   FpDeviceClass *dev_class = FP_DEVICE_CLASS(class);
   FpImageDeviceClass *img_dev_class = FP_IMAGE_DEVICE_CLASS(class);
@@ -804,27 +731,21 @@ fpi_device_goodixtls53xd_class_init(FpiDeviceGoodixTls53XDClass *class) {
 
   dev_class->id = "goodixtls53xd";
   dev_class->full_name = "Goodix TLS Fingerprint Sensor 53XD";
-  dev_class->type = FP_DEVICE_TYPE_USB; 
-  dev_class->id_table = id_table; // Devices supported by driver
+  dev_class->type = FP_DEVICE_TYPE_USB;
+  dev_class->id_table = id_table;
 
-  dev_class->scan_type = FP_SCAN_TYPE_PRESS; // Either scan or swipe
+  dev_class->scan_type = FP_SCAN_TYPE_PRESS;
 
-  img_dev_class->bz3_threshold = 24; // Detection threshold
-  img_dev_class->img_width = GOODIX53XD_WIDTH; // Only given for constant width
-  img_dev_class->img_height = GOODIX53XD_HEIGHT; // Same but height
+  // TODO
+  img_dev_class->bz3_threshold = 24;
+  img_dev_class->img_width = GOODIX53XD_WIDTH;
+  img_dev_class->img_height = GOODIX53XD_HEIGHT;
 
-  img_dev_class->img_open = dev_init;   // Called to claim and open device
-  img_dev_class->img_close = dev_deinit;    // Called to close and
-                                            // release device
-  img_dev_class->activate = dev_activate;   // Called to start finger scanning 
-                                            // and/or finger detection
-  img_dev_class->deactivate = dev_deactivate;   // Called to stop waiting
-                                                //for finger
-  img_dev_class->change_state = dev_change_state;   // Called anytime the device
-                                                    // changes state, such as
-                                                    // going from idle to
-                                                    // waiting for finger
- 
+  img_dev_class->img_open = dev_init;
+  img_dev_class->img_close = dev_deinit;
+  img_dev_class->activate = dev_activate;
+  img_dev_class->change_state = dev_change_state;
+  img_dev_class->deactivate = dev_deactivate;
 
   fpi_device_class_auto_initialize_features(dev_class);
 }
