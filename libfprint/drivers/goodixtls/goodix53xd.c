@@ -79,49 +79,20 @@ _frame_processing_info {
 // ---- ACTIVE SECTION START ----
 
 /**
- * @brief Checks that the send command executed properly, then moves to next
- *        state in the state machine
+ * @brief Checks nothing and moves the state machine to the next state
  * 
  * @param dev 
  * @param user_data 
  * @param error 
  */
 static void
-goodix_send_callback(FpDevice *dev, FpiSsm* ssm, GError *error) {
+check_none(FpDevice *dev, gpointer user_data, GError *error) {
   if (error) {
-    fpi_ssm_mark_failed(ssm, error);
+    fpi_ssm_mark_failed(user_data, error);
     return;
   }
-   switch (fpi_ssm_get_cur_state(ssm)) {
-    case ACTIVATE_READ_AND_NOP:
-        break;
 
-    case ACTIVATE_ENABLE_CHIP:
-        break;
-
-    case ACTIVATE_NOP:
-        break;
-
-    case ACTIVATE_CHECK_FW_VER:
-        break;
-
-    case ACTIVATE_CHECK_PSK:
-        break;
-
-    case ACTIVATE_RESET:
-        break;
-
-    case ACTIVATE_OTP:
-        break;
-
-    case ACTIVATE_SET_MCU_IDLE:
-        break;
-
-    case ACTIVATE_SET_MCU_CONFIG:
-        break;
-    default: // TODO What happens if we have a bad state?
-   }
-  fpi_ssm_next_state(ssm);
+  fpi_ssm_next_state(user_data);
 }
 /**
  * @brief Checks that firmware name is expected and advances to next state
@@ -133,7 +104,7 @@ goodix_send_callback(FpDevice *dev, FpiSsm* ssm, GError *error) {
  */
 static void
 check_firmware_version(FpDevice *dev, gchar *firmware,
-                                   FpiSsm* user_data, GError *error) {
+                                   gpointer user_data, GError *error) {
   if (error) {
     fpi_ssm_mark_failed(user_data, error);
     return;
@@ -161,7 +132,7 @@ check_firmware_version(FpDevice *dev, gchar *firmware,
  */
 static void
 check_reset(FpDevice *dev, gboolean success, guint16 number,
-                        FpiSsm* user_data, GError *error) {
+                        gpointer user_data, GError *error) {
   if (error) {
     fpi_ssm_mark_failed(user_data, error);
     return;
@@ -199,7 +170,7 @@ check_reset(FpDevice *dev, gboolean success, guint16 number,
 static void
 check_preset_psk_read(FpDevice *dev, gboolean success,
                                   guint32 flags, guint8 *psk, guint16 length,
-                                  FpiSsm* user_data, GError *error) {
+                                  gpointer user_data, GError *error) {
   g_autofree gchar *psk_str = data_to_str(psk, length);
 
   if (error) {
@@ -248,7 +219,7 @@ check_preset_psk_read(FpDevice *dev, gboolean success,
  * @param err 
  */
 static void
-check_idle(FpDevice* dev, FpiSsm* user_data, GError* err)
+check_idle(FpDevice* dev, gpointer user_data, GError* err)
 {
 
     if (err) {
@@ -267,7 +238,7 @@ check_idle(FpDevice* dev, FpiSsm* user_data, GError* err)
  */
 static void
 check_config_upload(FpDevice* dev, gboolean success,
-                                FpiSsm* user_data, GError* error)
+                                gpointer user_data, GError* error)
 {
     if (error) {
         fpi_ssm_mark_failed(user_data, error);
@@ -284,7 +255,7 @@ check_config_upload(FpDevice* dev, gboolean success,
 
 static void
 read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
-                              FpiSsm* ssm, GError* err)
+                              gpointer ssm, GError* err)
 {
     if (err) {
         fpi_ssm_mark_failed(ssm, err);
@@ -320,42 +291,42 @@ activate_run_state(FpiSsm* ssm, FpDevice* dev)
         // Nop seems to clear the previous command buffer. But we are
         // unable to do so.
         goodix_start_read_loop(dev);
-        goodix_send_nop(dev, (GoodixNoneCallback)goodix_send_callback, (gpointer*)ssm);
+        goodix_send_nop(dev, check_none, ssm);
         break;
 
     case ACTIVATE_ENABLE_CHIP:
-        goodix_send_enable_chip(dev, TRUE, (GoodixNoneCallback)goodix_send_callback, (gpointer*)ssm);
+        goodix_send_enable_chip(dev, TRUE, check_none, ssm);
         break;
 
     case ACTIVATE_NOP:
-        goodix_send_nop(dev, (GoodixNoneCallback)goodix_send_callback, ssm);
+        goodix_send_nop(dev, check_none, ssm);
         break;
 
     case ACTIVATE_CHECK_FW_VER:
-        goodix_send_firmware_version(dev, (GoodixFirmwareVersionCallback)check_firmware_version, (gpointer*)ssm);
+        goodix_send_firmware_version(dev, check_firmware_version, ssm);
         break;
 
     case ACTIVATE_CHECK_PSK:
         goodix_send_preset_psk_read(dev, GOODIX_53XD_PSK_FLAGS, 32,
-                                    (GoodixPresetPskReadCallback)check_preset_psk_read, (gpointer*)ssm);
+                                    check_preset_psk_read, ssm);
         break;
 
     case ACTIVATE_RESET:
-        goodix_send_reset(dev, TRUE, 20, (GoodixResetCallback)check_reset, (gpointer*)ssm);
+        goodix_send_reset(dev, TRUE, 20, check_reset, ssm);
         break;
 
     case ACTIVATE_OTP:
-        goodix_send_read_otp(dev, (GoodixDefaultCallback)read_otp_callback, (gpointer*)ssm);
+        goodix_send_read_otp(dev, read_otp_callback, ssm);
         break;
 
     case ACTIVATE_SET_MCU_IDLE:
-        goodix_send_mcu_switch_to_idle_mode(dev, 20, (GoodixNoneCallback)check_idle, (gpointer*)ssm);
+        goodix_send_mcu_switch_to_idle_mode(dev, 20, check_idle, ssm);
         break;
 
     case ACTIVATE_SET_MCU_CONFIG:
         goodix_send_upload_config_mcu(dev, goodix_53xd_config,
                                         sizeof(goodix_53xd_config), NULL,
-                                        (GoodixSuccessCallback)check_config_upload, (gpointer*)ssm);
+                                        check_config_upload, ssm);
         break;
     default: // TODO What happens if we have a bad state?
     }
@@ -369,7 +340,7 @@ activate_run_state(FpiSsm* ssm, FpDevice* dev)
  * @param error 
  */
 static void
-tls_activation_complete(FpDevice* dev, FpiSsm* user_data,
+tls_activation_complete(FpDevice* dev, gpointer user_data,
                                     GError* error)
 {
     if (error) {
@@ -392,7 +363,7 @@ activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 {
     G_DEBUG_HERE();
     if (!error)
-        goodix_tls(dev, (GoodixNoneCallback)tls_activation_complete, NULL);
+        goodix_tls(dev, tls_activation_complete, NULL);
     else {
         fp_err("failed during activation: %s (code: %d)", error->message,
                error->code);
@@ -416,7 +387,7 @@ activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
  */
 static void
 check_none_cmd(FpDevice* dev, guint8* data, guint16 len,
-                           FpiSsm* ssm, GError* err)
+                           gpointer ssm, GError* err)
 {
     if (err) {
         fpi_ssm_mark_failed(ssm, err);
@@ -552,7 +523,7 @@ save_frame(FpiDeviceGoodixTls53XD* self, guint8* raw)
  */
 static void
 scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
-                             FpiSsm* ssm, GError* err)
+                             gpointer ssm, GError* err)
 {
     if (err) {
         fpi_ssm_mark_failed(ssm, err);
@@ -602,7 +573,7 @@ scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
  * @param ssm 
  */
 static void
-scan_get_img(FpDevice* dev, FpiSsm* ssm, GError* error)
+scan_get_img(FpDevice* dev, FpiSsm* ssm)
 {
     FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
@@ -624,7 +595,7 @@ static void
 goodix_send_mcu(FpDevice *dev, guint8 cmd, gboolean reply,
                 guint8 *mode, guint16 length,
                 GDestroyNotify free_func, GoodixDefaultCallback callback,
-                FpiSsm* user_data)
+                gpointer user_data)
 {
   GoodixCallbackInfo *cb_info;
 
@@ -649,7 +620,7 @@ static void
 scan_run_state(FpiSsm* ssm, FpDevice* dev)
 {
     FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
-    // FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
+    FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
 
 
     switch (fpi_ssm_get_cur_state(ssm)) {
@@ -658,59 +629,59 @@ scan_run_state(FpiSsm* ssm, FpDevice* dev)
         goodix_send_mcu(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_MODE, TRUE,
                                     (guint8 *)fdt_switch_state_mode_53xd,
                                     sizeof(fdt_switch_state_mode_53xd), NULL,
-                                    (GoodixDefaultCallback)check_none_cmd, ssm);
+                                    check_none_cmd, ssm);
         break;
 
-    // case SCAN_STAGE_SWITCH_TO_FDT_DOWN:
-    //     // FDT Down Cali
-    //     fdt_switch_state_down_53xd[2] = self->otp[33];
-    //     fdt_switch_state_down_53xd[4] = self->otp[41];
-    //     fdt_switch_state_down_53xd[6] = self->otp[42];
-    //     fdt_switch_state_down_53xd[8] = self->otp[43];
+    case SCAN_STAGE_SWITCH_TO_FDT_DOWN:
+        // FDT Down Cali
+        fdt_switch_state_down_53xd[2] = self->otp[33];
+        fdt_switch_state_down_53xd[4] = self->otp[41];
+        fdt_switch_state_down_53xd[6] = self->otp[42];
+        fdt_switch_state_down_53xd[8] = self->otp[43];
 
-    //     // First FDT down must not send a reply
-    //     fdt_switch_state_down_53xd[26] = 0x00;
-    //     goodix_send_mcu(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_DOWN, FALSE,
-    //                     (guint8*) fdt_switch_state_down_53xd,
-    //                     sizeof(fdt_switch_state_down_53xd),
-    //                     NULL, receive_fdt_down_ack, ssm);
-    //     break;
+        // First FDT down must not send a reply
+        fdt_switch_state_down_53xd[26] = 0x00;
+        goodix_send_mcu(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_DOWN, FALSE,
+                        (guint8*) fdt_switch_state_down_53xd,
+                        sizeof(fdt_switch_state_down_53xd),
+                        NULL, receive_fdt_down_ack, ssm);
+        break;
     case SCAN_STAGE_GET_IMG:
         fpi_image_device_report_finger_status(img_dev, TRUE);
         guint16 payload = {0x05}; 
         goodix_send_write_sensor_register(dev,
-                                     556, payload, (GoodixNoneCallback)scan_get_img, ssm);
+                                     556, payload, write_sensor_complete, ssm);
         break;
     }
 }
 
-// static void
-// receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len,
-//                            FpiSsm* ssm, GError* err)
-// {
-//     if (err) {
-//         fpi_ssm_mark_failed(ssm, err);
-//         return;
-//     }
+static void
+receive_fdt_down_ack(FpDevice* dev, guint8* data, guint16 len,
+                           gpointer ssm, GError* err)
+{
+    if (err) {
+        fpi_ssm_mark_failed(ssm, err);
+        return;
+    }
 
-//     // Second FDT down must send a response
-//     fdt_switch_state_down_53xd[26] = 0x01;
-//     goodix_send_mcu_switch_to_fdt_down(dev, 
-//                                     (guint8*) fdt_switch_state_down_53xd,
-//                                     sizeof(fdt_switch_state_down_53xd), NULL,
-//                                     (GoodixDefaultCallback)check_none_cmd, ssm);
-// }
+    // Second FDT down must send a response
+    fdt_switch_state_down_53xd[26] = 0x01;
+    goodix_send_mcu_switch_to_fdt_down(dev, 
+                                    (guint8*) fdt_switch_state_down_53xd,
+                                    sizeof(fdt_switch_state_down_53xd), NULL,
+                                    check_none_cmd, ssm);
+}
 
-// static void
-// write_sensor_complete(FpDevice *dev, 
-//                                     FpiSsm* user_data, GError *error) 
-// {
-//     if (error) {
-//         fp_err("failed to scan: %s (code: %d)", error->message, error->code);
-//         return;
-//     }
-//     scan_get_img(dev, user_data, error);
-// }
+static void
+write_sensor_complete(FpDevice *dev, 
+                                    gpointer user_data, GError *error) 
+{
+    if (error) {
+        fp_err("failed to scan: %s (code: %d)", error->message, error->code);
+        return;
+    }
+    scan_get_img(dev, user_data);
+}
 
 static void
 scan_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
