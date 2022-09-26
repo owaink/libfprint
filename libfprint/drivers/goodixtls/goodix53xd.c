@@ -42,6 +42,11 @@
 
 #include <math.h>
 
+#define GOODIX53XD_DEVICE_ID "goodixtls53xd"
+#define GOODIX53XD_DEVICE_NAME "Goodix TLS Fingerprint Sensor 53XD"
+#define GOODIX53XD_BZ3_THRESHOLD 24
+#define GOODIX53XD_SLEEP_TIME 20
+#define GOODIX53XD_PSK_LENGTH 32
 #define GOODIX53XD_WIDTH 64
 #define GOODIX53XD_HEIGHT 80
 #define GOODIX53XD_SCAN_WIDTH 64
@@ -93,7 +98,15 @@ static void check_none(FpDevice *dev, gpointer user_data, GError *error) {
 
   fpi_ssm_next_state(user_data);
 }
-
+/**
+ * @brief   Checks that the scanner did not report and error,
+ *          then moves to next state in the state machine
+ * @details Used as a default callback if we don't need to do anything with
+ *          the device's response
+ * @param dev Scanner being communicated with
+ * @param user_data State machine for operation
+ * @param error 
+ */
 static void check_firmware_version(FpDevice *dev, gchar *firmware,
                                    gpointer user_data, GError *error) {
   if (error) {
@@ -112,7 +125,16 @@ static void check_firmware_version(FpDevice *dev, gchar *firmware,
 
   fpi_ssm_next_state(user_data);
 }
-
+/**
+ * @brief Checks that device was reset properly and advances to next state
+ * @details Used as callback when scanner responds to a reset request
+ * @param dev Scanner being reset
+ * @param success If reset was successfull or not
+ * @param number Magic reset number sent to device to trigger reset, should be
+ *               GOODIX_53XD_RESET_NUMBER
+ * @param user_data   State Machine for the operation 
+ * @param error 
+ */
 static void check_reset(FpDevice *dev, gboolean success, guint16 number,
                         gpointer user_data, GError *error) {
   if (error) {
@@ -139,6 +161,17 @@ static void check_reset(FpDevice *dev, gboolean success, guint16 number,
   fpi_ssm_next_state(user_data);
 }
 
+/**
+ * @brief Check if preshared key is as expected then advances to next state
+ * @details Used as callback when device responds to psk read request
+ * @param dev Device having preshared key checked
+ * @param success Whether the psk is readable
+ * @param flags TODO
+ * @param psk Preshared Key
+ * @param length Number of bytes in preshared key
+ * @param user_data State machine for operation 
+ * @param error 
+ */
 static void check_preset_psk_read(FpDevice *dev, gboolean success,
                                   guint32 flags, guint8 *psk, guint16 length,
                                   gpointer user_data, GError *error) {
@@ -182,6 +215,13 @@ static void check_preset_psk_read(FpDevice *dev, gboolean success,
 
   fpi_ssm_next_state(user_data);
 }
+/**
+ * @brief Checks that scanner did not respond with error on request for idle
+ * @details Callback when device is in idle state
+ * @param dev Device to check
+ * @param user_data State machine for operation
+ * @param err 
+ */
 static void check_idle(FpDevice* dev, gpointer user_data, GError* err)
 {
 
@@ -191,6 +231,14 @@ static void check_idle(FpDevice* dev, gpointer user_data, GError* err)
     }
     fpi_ssm_next_state(user_data);
 }
+/**
+ * @brief Checks config was uploaded properly and moves to next state
+ * @details Used as callback when device responds to uploading a config
+ * @param dev Device where config is uploaded
+ * @param success If config was uploaded properly
+ * @param user_data State machine for operation
+ * @param error 
+ */
 static void check_config_upload(FpDevice* dev, gboolean success,
                                 gpointer user_data, GError* error)
 {
@@ -255,7 +303,7 @@ static void otp_write_run(FpiSsm* ssm, FpDevice* dev)
     }
     */
 }
-
+// TODO
 static void read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
                               gpointer ssm, GError* err)
 {
@@ -275,6 +323,15 @@ static void read_otp_callback(FpDevice* dev, guint8* data, guint16 len,
     fpi_ssm_next_state(ssm);
 }
 
+/**
+ * @brief Runs functions depending on current state of SSM
+ * @details This is the main part of the driver. This function runs every time
+ *  the state machine moves to the next state. This function looks at the 
+ *  current state of the ssm responds accordingly
+ * 
+ * @param ssm State machine that is being advanced
+ * @param dev Device state machine is tracking
+ */
 static void activate_run_state(FpiSsm* ssm, FpDevice* dev)
 {
 
@@ -322,6 +379,14 @@ static void activate_run_state(FpiSsm* ssm, FpDevice* dev)
         break;
     }
 }
+/**
+ * @brief Checks for error, then marks device activation as complete if no error
+ * @details Callback when device responds to request for tls communication
+ * 
+ * @param dev Device that tls is activated for
+ * @param user_data 
+ * @param error 
+ */
 
 static void tls_activation_complete(FpDevice* dev, gpointer user_data,
                                     GError* error)
@@ -335,6 +400,13 @@ static void tls_activation_complete(FpDevice* dev, gpointer user_data,
     fpi_image_device_activate_complete(image_dev, error);
 }
 
+/**
+ * @brief Activates TLS if no errors have occured, otherwise spit an error
+ * 
+ * @param ssm 
+ * @param dev 
+ * @param error 
+ */
 static void activate_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 {
     G_DEBUG_HERE();
@@ -361,6 +433,15 @@ enum SCAN_STAGES {
     SCAN_STAGE_NUM,
 };
 
+/**
+ * @brief Checks for errors and moves to next state in ssm
+ * 
+ * @param dev 
+ * @param data 
+ * @param len 
+ * @param ssm 
+ * @param err 
+ */
 static void check_none_cmd(FpDevice* dev, guint8* data, guint16 len,
                            gpointer ssm, GError* err)
 {
@@ -371,6 +452,16 @@ static void check_none_cmd(FpDevice* dev, guint8* data, guint16 len,
     fpi_ssm_next_state(ssm);
 }
 
+/**
+ * @brief Get the pixel located at (x,y)
+ * 
+ * @param ctx 
+ * @param frame 
+ * @param x 
+ * @param y 
+ * @return unsigned char 
+ */
+
 static unsigned char get_pix(struct fpi_frame_asmbl_ctx* ctx,
                              struct fpi_frame* frame, unsigned int x,
                              unsigned int y)
@@ -380,7 +471,12 @@ static unsigned char get_pix(struct fpi_frame_asmbl_ctx* ctx,
 
 // Bitdepth is 12, but we have to fit it in a byte. This is unused, no squashing is done
 static unsigned char squash(int v) { return v / 16; }
-
+/**
+ * @brief Transforms raw image data from the sensor to usable image data
+ * 
+ * @param frame 
+ * @param raw_frame 
+ */
 static void decode_frame(Goodix53xdPix frame[GOODIX53XD_FRAME_SIZE],
                          const guint8* raw_frame)
 {
@@ -512,6 +608,13 @@ typedef struct _frame_processing_info {
     GSList** frames;
 
 } frame_processing_info;
+/**
+ * @brief Subtracts the background from the frame
+ * @details This appears to be used for calibrating the scanner by taking an
+ *          empty image and subtracting it from the fingerprint image
+ * @param frame
+ * @param background
+ */
 
 static void process_frame(Goodix53xdPix* raw_frame, frame_processing_info* info)
 {
@@ -522,7 +625,13 @@ static void process_frame(Goodix53xdPix* raw_frame, frame_processing_info* info)
 
     *(info->frames) = g_slist_append(*(info->frames), frame);
 }
-
+/**
+ * @brief Save the frame to an internal buffer
+ * @details Transforms raw data to useable image, then appends to an internal
+ *          single linked list
+ * @param self 
+ * @param raw 
+ */
 static void save_frame(FpiDeviceGoodixTls53XD* self, guint8* raw)
 {
     Goodix53xdPix* frame = malloc(GOODIX53XD_FRAME_SIZE * sizeof(Goodix53xdPix));
@@ -530,6 +639,19 @@ static void save_frame(FpiDeviceGoodixTls53XD* self, guint8* raw)
     self->frames = g_slist_append(self->frames, frame);
 }
 
+/**
+ * @brief Saves the currently captured frame and captures new frame until list
+ *          is full, then processes into single image
+ * @details Captures frames and decodes to images until linked list is of size
+ *          GOODIX53XD_CAP_FRAMES. Processes all the images into a single image
+ *          and presents to libfprint as the resulting scanned image
+ * 
+ * @param dev 
+ * @param data 
+ * @param len 
+ * @param ssm 
+ * @param err 
+ */
 static void scan_on_read_img(FpDevice* dev, guint8* data, guint16 len,
                              gpointer ssm, GError* err)
 {
@@ -664,7 +786,13 @@ static void goodix_53xd_tls_read_image(FpDevice* dev, guint8* payload, guint16 l
 
   goodix_53xd_send_mcu_get_image(dev, payload, length, goodix_tls_ready_image_handler, cb_info);
 }
-
+/**
+ * @brief Request an image from the scanner
+ * @details Sends a scan request to the fingerprint scanner and advances the
+ *          state machine
+ * @param dev Device to request an image from
+ * @param ssm State machine for scan process
+ */
 static void scan_get_img(FpDevice* dev, FpiSsm* ssm)
 {
     FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
@@ -736,7 +864,14 @@ static void goodix_send_mcu_switch_to_fdt_mode_no_reply(FpDevice *dev, guint8 *m
   goodix_send_protocol(dev, GOODIX_CMD_MCU_SWITCH_TO_FDT_MODE, mode, length,
                        free_func, TRUE, 0, FALSE, NULL, NULL);
 }
-
+/**
+ * @brief   Performs actions related to scanning depending on the current state
+ *          of the state machine
+ * @details Sends the next command needed for the scanning process, might
+ *          be redunant in the long run
+ * @param ssm State machine of scan process
+ * @param dev Device to communicate with
+ */
 static void scan_run_state(FpiSsm* ssm, FpDevice* dev)
 {
     FpImageDevice* img_dev = FP_IMAGE_DEVICE(dev);
@@ -795,7 +930,13 @@ static void write_sensor_complete(FpDevice *dev, gpointer user_data, GError *err
     }
     scan_get_img(dev, user_data);
 }
-
+/**
+ * @brief Checks that a scan completed successfully with no erors
+ * @details Used as a callback in the scanning process, mostly just a stub
+ * @param ssm State machine for scan process
+ * @param dev Device doing the scanning
+ * @param error Any error that occuring during scanning
+ */
 static void scan_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
 {
     if (error) {
@@ -804,7 +945,12 @@ static void scan_complete(FpiSsm* ssm, FpDevice* dev, GError* error)
     }
     fp_dbg("finished scan");
 }
-
+/**
+ * @brief Starts the scannning process to get an image from the device
+ * @details Calls fpi_ssm_start to run through the scanning process, creating a
+ *          state machine for the process
+ * @param dev Device to get an image from
+ */
 static void scan_start(FpiDeviceGoodixTls53XD* dev)
 {
     fpi_ssm_start(fpi_ssm_new(FP_DEVICE(dev), scan_run_state, SCAN_STAGE_NUM),
@@ -814,7 +960,11 @@ static void scan_start(FpiDeviceGoodixTls53XD* dev)
 // ---- SCAN SECTION END ----
 
 // ---- DEV SECTION START ----
-
+/**
+ * @brief Claims the device from libfprint, gets it ready for use by the driver
+ * 
+ * @param img_dev Device to claim and open
+ */
 static void dev_init(FpImageDevice *img_dev) {
   FpDevice *dev = FP_DEVICE(img_dev);
   GError *error = NULL;
@@ -826,7 +976,11 @@ static void dev_init(FpImageDevice *img_dev) {
 
   fpi_image_device_open_complete(img_dev, NULL);
 }
-
+/**
+ * @brief Release device back to libfprint, disconnect driver from it
+ * 
+ * @param img_dev Device to release
+ */
 static void dev_deinit(FpImageDevice *img_dev) {
   FpDevice *dev = FP_DEVICE(img_dev);
   GError *error = NULL;
@@ -838,7 +992,11 @@ static void dev_deinit(FpImageDevice *img_dev) {
 
   fpi_image_device_close_complete(img_dev, NULL);
 }
-
+/**
+ * @brief Startes the activation process with coresponding states in enum
+ * 
+ * @param img_dev Image device to activate
+ */
 static void dev_activate(FpImageDevice *img_dev) {
     FpDevice* dev = FP_DEVICE(img_dev);
 
@@ -846,8 +1004,13 @@ static void dev_activate(FpImageDevice *img_dev) {
                   activate_complete);
 }
 
-
-
+/**
+ * @brief Called each time dev state changes, used to start the next step of
+ *          whatever process it is working on
+ * 
+ * @param img_dev Scanner doing the work
+ * @param state Current state of the device
+ */
 static void dev_change_state(FpImageDevice* img_dev, FpiImageDeviceState state)
 {
     FpiDeviceGoodixTls53XD* self = FPI_DEVICE_GOODIXTLS53XD(img_dev);
@@ -857,9 +1020,15 @@ static void dev_change_state(FpImageDevice* img_dev, FpiImageDeviceState state)
         scan_start(self);
     }
 }
-
+// TODO
 static void goodix53xd_reset_state(FpiDeviceGoodixTls53XD* self) {}
 
+/**
+ * @brief Deactivates device, no longer being used but still claimed by driver
+ *        and ready for next use
+ * 
+ * @param img_dev Device to release
+ */
 static void dev_deactivate(FpImageDevice *img_dev) {
     FpDevice* dev = FP_DEVICE(img_dev);
     goodix_reset_state(dev);
@@ -875,9 +1044,13 @@ static void fpi_device_goodixtls53xd_init(FpiDeviceGoodixTls53XD* self)
 {
     self->frames = g_slist_alloc();
 }
-
-static void fpi_device_goodixtls53xd_class_init(
-    FpiDeviceGoodixTls53XDClass *class) {
+/*
+    This is the only thing the rest of libfprint cares about. This tells
+    libfprint how to interact with the device, that it is a image based device,
+    usb based device, which endpoints to use for it, etc
+*/
+static void
+fpi_device_goodixtls53xd_class_init(FpiDeviceGoodixTls53XDClass *class) {
   FpiDeviceGoodixTlsClass *gx_class = FPI_DEVICE_GOODIXTLS_CLASS(class);
   FpDeviceClass *dev_class = FP_DEVICE_CLASS(class);
   FpImageDeviceClass *img_dev_class = FP_IMAGE_DEVICE_CLASS(class);
@@ -886,23 +1059,30 @@ static void fpi_device_goodixtls53xd_class_init(
   gx_class->ep_in = GOODIX_53XD_EP_IN;
   gx_class->ep_out = GOODIX_53XD_EP_OUT;
 
-  dev_class->id = "goodixtls53xd";
-  dev_class->full_name = "Goodix TLS Fingerprint Sensor 53XD";
-  dev_class->type = FP_DEVICE_TYPE_USB;
-  dev_class->id_table = id_table;
+  dev_class->id = GOODIX53XD_DEVICE_ID;
+  dev_class->full_name = GOODIX53XD_DEVICE_NAME;
+  dev_class->type = FP_DEVICE_TYPE_USB; 
+  dev_class->id_table = id_table; // Devices supported by driver
 
-  dev_class->scan_type = FP_SCAN_TYPE_PRESS;
+  dev_class->scan_type = FP_SCAN_TYPE_PRESS; // Either scan or swipe
 
-  // TODO
-  img_dev_class->bz3_threshold = 24;
-  img_dev_class->img_width = GOODIX53XD_WIDTH;
-  img_dev_class->img_height = GOODIX53XD_HEIGHT;
+  img_dev_class->bz3_threshold = GOODIX53XD_BZ3_THRESHOLD; // Detection 
+                                                           // threshold
+  img_dev_class->img_width = GOODIX53XD_WIDTH; // Only given for constant width
+  img_dev_class->img_height = GOODIX53XD_HEIGHT; // Same but height
 
-  img_dev_class->img_open = dev_init;
-  img_dev_class->img_close = dev_deinit;
-  img_dev_class->activate = dev_activate;
-  img_dev_class->change_state = dev_change_state;
-  img_dev_class->deactivate = dev_deactivate;
-
+  img_dev_class->img_open = dev_init;   // Called to claim and open device
+  img_dev_class->img_close = dev_deinit;    // Called to close and
+                                            // release device
+  img_dev_class->activate = dev_activate;   // Called to start finger scanning 
+                                            // and/or finger detection
+  img_dev_class->deactivate = dev_deactivate;   // Called to stop waiting
+                                                // for finger
+  img_dev_class->change_state = dev_change_state;   // Called anytime the device
+                                                    // changes state, such as
+                                                    // going from idle to
+                                                    // waiting for finger
+ 
+  // Auto attaches features that USB image devices are expected to have
   fpi_device_class_auto_initialize_features(dev_class);
 }
